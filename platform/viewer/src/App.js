@@ -134,6 +134,7 @@ class App extends Component {
      */
     _initHotkeys(appConfigHotkeys);
     _initServers(servers);
+    _initUserPreferences();
     initWebWorkers();
   }
 
@@ -282,6 +283,10 @@ function _initServers(servers) {
   if (servers) {
     utils.addServers(servers, store);
   }
+}
+
+function _initUserPreferences() {
+  utils.addUserPreferences(store);
 }
 
 function _isAbsoluteUrl(url) {
