@@ -286,7 +286,15 @@ function _initServers(servers) {
 }
 
 function _initUserPreferences() {
-  utils.addUserPreferences(store);
+  const windowLevelData = JSON.parse(
+    localStorage.getItem('window-level-data') || '{}'
+  );
+
+  const preferences = {
+    windowLevelData,
+  };
+
+  utils.addUserPreferences({ store, preferences });
 }
 
 function _isAbsoluteUrl(url) {

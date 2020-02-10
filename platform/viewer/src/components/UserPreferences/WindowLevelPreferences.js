@@ -30,6 +30,8 @@ function WindowLevelPreferences({ onClose }) {
   const onSave = () => {
     dispatch(actions.setUserPreferences(state.values));
 
+    localStorage.setItem('window-level-data', JSON.stringify(state.values));
+
     onClose();
 
     snackbar.show({
