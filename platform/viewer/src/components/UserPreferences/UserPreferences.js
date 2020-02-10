@@ -25,7 +25,7 @@ const tabs = [
     name: 'Window Level',
     Component: WindowLevelPreferences,
     customProps: {},
-    hidden: true,
+    hidden: false,
   },
 ];
 
