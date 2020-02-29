@@ -17,24 +17,58 @@ export default class AIAAPanel extends Component {
     super(props);
     this.state = {
       aiaaServerURL: props.client.getServerURL(),
+      segModels: props.client.cachedSegModels,
+      annModels: props.client.cachedAnnModels,
+      deepgrowModels: props.client.cachedDeepgrowModels,
+      currSegModel: '',
+      currAnnModel: '',
+      currDeepGrowModel: '',
+      currSegLabels: [],
+      currAnnLabels: [],
     };
   }
 
-  handleFetch() {
+  handleFetch = () => {
     this.props.client
       .model_list()
       .then(response => {
         console.log(response);
       })
+      .then(() => {
+        this.setState({
+          segModels: this.props.client.cachedSegModels,
+          annModels: this.props.client.cachedAnnModels,
+          deepgrowModels: this.props.client.cachedDeepgrowModels,
+        });
+      })
       .catch(error => {
         console.log(error);
       });
-  }
+  };
 
-  onChangeSeverURL(value) {
+  onBlurSeverURL = evt => {
+    let value = evt.target.value;
     this.setState({ aiaaServerURL: value });
     this.props.client.setServerURL(value);
-  }
+  };
+
+  onChangeSegModel = evt => {
+    this.setState({
+      currSegModel: evt.target.value,
+      currSegLabels: evt.target.selectedOptions[0]
+        .getAttribute('aiaalabel')
+        .split(',', 20),
+    });
+  };
+
+  onChangeAnnModel = evt => {
+    this.setState({
+      currAnnModel: evt.target.value,
+      currAnnLabels: evt.target.selectedOptions[0]
+        .getAttribute('aiaalabel')
+        .split(',', 20),
+    });
+  };
 
   render() {
     return (
@@ -48,10 +82,10 @@ export default class AIAAPanel extends Component {
           <input
             name="aiaaServerURL"
             type="text"
-            value={this.state.aiaaServerURL}
-            onChange={e => this.onChangeSeverURL(e.target.value)}
+            defaultValue={this.state.aiaaServerURL}
+            onBlur={this.onBlurSeverURL}
           />
-          <button className="aiaaButton" onClick={() => this.handleFetch()}>
+          <button className="aiaaButton" onClick={this.handleFetch}>
             <Icon name="reset" width="14px" height="14px" />
           </button>
         </div>
@@ -62,7 +96,7 @@ export default class AIAAPanel extends Component {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Check AIAA server for models
+            All models
           </a>
 
           <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b>
@@ -72,18 +106,19 @@ export default class AIAAPanel extends Component {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Check AIAA Logs
+            AIAA Logs
           </a>
         </p>
 
-        {/* <label> Segmentaion Models: </label>
+        <label> Segmentaion Models: </label>
 
         <select
           className="aiaaDropDown"
-          onChange={this.onNvidiaSegChange}
-          value={activeSegModel}
+          onChange={this.onChangeSegModel}
+          value={this.state.currSegModel}
         >
-          {OHIF.NVIDIA.aiaaService.cachedSegModels.map(model => (
+          <option key="default" value="default" aiaalabel=""></option>
+          {this.state.segModels.map(model => (
             <option
               key={model.name}
               value={model.name}
@@ -92,24 +127,22 @@ export default class AIAAPanel extends Component {
           ))}
         </select>
 
-        <br />
-        <br />
-
-        <label> Annotation Models: &nbsp;&nbsp;&nbsp;</label>
+        <label> Annotation (DExtr3D) Models: &nbsp;&nbsp;&nbsp;</label>
 
         <select
           className="aiaaDropDown"
-          onChange={this.onNvidiaAnnChange}
-          value={activeAnnModel}
+          onChange={this.onChangeAnnModel}
+          value={this.state.currAnnModel}
         >
-          {OHIF.NVIDIA.aiaaService.cachedAnnModels.map(model => (
+          <option key="default" value="default" aiaalabel=""></option>
+          {this.state.annModels.map(model => (
             <option
               key={model.name}
               value={model.name}
               aiaalabel={model.labels}
             >{`${model.name} `}</option>
           ))}
-        </select> */}
+        </select>
       </div>
     );
   }

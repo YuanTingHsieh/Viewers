@@ -1,11 +1,23 @@
-import { createDataVol_byAllPromise } from './io.js';
-
 const commandsModule = ({ servicesManager, commandsManager }) => {
   const actions = {
-    segmentation: ({ studies, viewports }) => {
+    segmentation: ({ viewports }) => {
       console.log('Running Nvidia AIAA segmentation API.');
-
-      // var { dataArg, databuf } = createDataVol_byAllPromise(studies, viewports);
+      const { AIAAService } = servicesManager.services;
+      AIAAService.volume.getOrCreate(viewports).then(volume => {
+        const metadata = AIAAService.volume.metadata;
+        const {
+          seriesInstanceUid,
+          nSlices,
+          slope,
+          intercept,
+          rows,
+          columns,
+          columnPixelSpacing,
+          rowPixelSpacing,
+          seriesDescription,
+        } = metadata;
+        console.log('volume metadata row is ' + rows);
+      });
     },
     dextr3d: () => {
       console.log('Running Nvidia AIAA dextr3d API.');
@@ -18,7 +30,7 @@ const commandsModule = ({ servicesManager, commandsManager }) => {
   const definitions = {
     segmentation: {
       commandFn: actions.segmentation,
-      storeContexts: ['studies', 'viewports'],
+      storeContexts: ['viewports'],
       options: {},
     },
     dextr3d: {

@@ -35,7 +35,7 @@ export default {
    */
   getPanelModule({ servicesManager }) {
     const { AIAAService } = servicesManager.services;
-    const ConnectedAIAAPanel = () => <AIAAPanel client={AIAAService} />;
+    const ConnectedAIAAPanel = () => <AIAAPanel client={AIAAService.client} />;
     return {
       menuOptions: [
         {

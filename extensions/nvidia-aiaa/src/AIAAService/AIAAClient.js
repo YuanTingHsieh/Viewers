@@ -29,7 +29,7 @@ function get_cookie(cookie_name) {
   else return null;
 }
 
-export default class AIAAService {
+export default class AIAAClient {
   constructor(server_url, api_version = 'v1') {
     this.server_url = server_url;
     this.api_version = api_version;
@@ -41,7 +41,7 @@ export default class AIAAService {
     this.mask2polygon_api = 'mask2polygon';
     this.fixpolygon_api = 'fixpolygon';
     this.cachedSegModels = [];
-    this.cachedDextr3dModels = [];
+    this.cachedAnnModels = [];
     this.cachedDeepgrowModels = [];
     this._checkServer();
   }
@@ -66,7 +66,6 @@ export default class AIAAService {
     set_cookie('nvidiaAIAAServerUrl', url);
   }
 
-  //return server URL
   getServerURL() {
     return this.server_url;
   }
@@ -161,14 +160,14 @@ export default class AIAAService {
     let response = await this.call_server(this.model_api);
     let models = [];
     this.cachedSegModels = [];
-    this.cachedDextr3dModels = [];
+    this.cachedAnnModels = [];
     this.cachedDeepgrowModels = [];
 
     for (let i = 0; i < response.data.length; ++i) {
       models.push(response.data[i]);
 
       if (response.data[i].type === 'annotation') {
-        this.cachedDextr3dModels.push(response.data[i]);
+        this.cachedAnnModels.push(response.data[i]);
       } else if (response.data[i].type === 'segmentation') {
         this.cachedSegModels.push(response.data[i]);
       } else if (response.data[i].type === 'deepgrow') {
