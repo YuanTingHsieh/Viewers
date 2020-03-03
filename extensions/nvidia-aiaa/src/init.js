@@ -6,6 +6,6 @@ import AIAAService from './AIAAService';
  * @param {Object} configuration
  */
 export default function init({ servicesManager, configuration }) {
-  console.log('Initializing NVIDIA AIAA client');
+  console.log('NVIDIA AIAA - Initializing AIAA services');
   servicesManager.registerService(AIAAService, configuration);
 }

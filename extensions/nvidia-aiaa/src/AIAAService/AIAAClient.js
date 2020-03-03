@@ -43,6 +43,12 @@ export default class AIAAClient {
     this.cachedSegModels = [];
     this.cachedAnnModels = [];
     this.cachedDeepgrowModels = [];
+
+    // TODO: where to put the invoke logic
+    //   in ToolBar or Panel???
+    this.currSegModel = '';
+    this.currAnnModel = '';
+    this.currDeepgrowModel = '';
     this._checkServer();
   }
 

@@ -1,16 +1,19 @@
-import './AIAAPanel.styl';
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
 
+import './AIAAPanel.styl';
+
 export default class AIAAPanel extends Component {
   static propTypes = {
     client: PropTypes.object,
+    volume: PropTypes.object,
   };
 
   static defaultProps = {
     client: null,
+    volume: null,
   };
 
   constructor(props) {
@@ -59,6 +62,7 @@ export default class AIAAPanel extends Component {
         .getAttribute('aiaalabel')
         .split(',', 20),
     });
+    this.props.client.currSegModel = evt.target.value;
   };
 
   onChangeAnnModel = evt => {
@@ -68,6 +72,7 @@ export default class AIAAPanel extends Component {
         .getAttribute('aiaalabel')
         .split(',', 20),
     });
+    this.props.client.currAnnModel = evt.target.value;
   };
 
   render() {
