@@ -31,24 +31,14 @@ function get_cookie(cookie_name) {
 
 export default class AIAAClient {
   constructor(server_url, api_version = 'v1') {
-    this.server_url = server_url;
+    this.server_url = new URL(server_url);
+    // TODO:: implement dextr3d, deepgrow, mask2polygon, fixpolygon methods
     this.api_version = api_version;
-    this.logs_api = 'logs?lines=100';
-    this.model_api = 'models';
     this.dextr3d_api = 'dextr3d';
     this.deepgrow_api = 'deepgrow';
-    this.segmentation_api = 'segmentation';
     this.mask2polygon_api = 'mask2polygon';
     this.fixpolygon_api = 'fixpolygon';
-    this.cachedSegModels = [];
-    this.cachedAnnModels = [];
-    this.cachedDeepgrowModels = [];
 
-    // TODO: where to put the invoke logic
-    //   in ToolBar or Panel???
-    this.currSegModel = '';
-    this.currAnnModel = '';
-    this.currDeepgrowModel = '';
     this._checkServer();
   }
 
@@ -66,24 +56,28 @@ export default class AIAAClient {
       });
   }
 
-  setServerURL(url) {
+  setServerURL(url, use_cookie = true) {
     this.server_url = url;
     console.log('calling set server url');
-    set_cookie('nvidiaAIAAServerUrl', url);
+    if (use_cookie) set_cookie('nvidiaAIAAServerUrl', url);
   }
 
   getServerURL() {
-    return this.server_url;
+    return this.server_url.toString();
   }
 
   getModelsURL() {
-    return this.server_url + '/' + this.api_version + '/' + this.model_api;
+    let model_url = new URL('/v1/models', this.server_url);
+    return model_url.toString();
   }
 
-  getLogsURL() {
-    return this.server_url + '/' + this.logs_api;
+  getLogsURL(lines = 100) {
+    let log_url = new URL('logs', this.server_url);
+    log_url.searchParams.append('lines', lines);
+    return log_url.toString();
   }
 
+  // TODO:: rewrite/remove this
   async call_server(
     api,
     query = undefined,
@@ -99,17 +93,73 @@ export default class AIAAClient {
     console.log('Connecting to: ' + endpoint);
 
     if (params === undefined) {
-      return await this.api_get(endpoint);
+      return await AIAAUtils.api_get(endpoint);
     } else {
       if (files !== undefined) {
-        return await this.api_post_file(endpoint, params, files);
-      } else {
-        return await this.api_post_smpl(endpoint, params);
+        return await AIAAUtils.api_post_file(endpoint, params, files);
       }
     }
   }
 
-  api_get(url) {
+  /**
+   * Use either model name or label to query available models in AIAA
+   * @param {string} model_name
+   * @param {string} label
+   */
+  async model_list(model_name, label) {
+    console.log('AIAA fetching models');
+    let model_url = new URL('/v1/models', this.server_url);
+    if (model_name !== undefined)
+      model_url.searchParams.append('model', model_name);
+    else if (label !== undefined) model_url.searchParams.append('label', label);
+
+    let response = await AIAAUtils.api_get(model_url.toString());
+    return response;
+  }
+
+  /**
+   * Calls AIAA segmentation API
+   *
+   * @param {string} model_name
+   * @param {string} image_in
+   * @param {string} session_id
+   */
+  async segmentation(model_name, image_in, session_id) {
+    console.log('AIAAClient - calling segmentation');
+    let seg_url = new URL('/v1/segmentation', this.server_url);
+    seg_url.searchParams.append('model', model_name);
+
+    // TODO:: parse multi-part
+    seg_url.searchParams.append('output', 'image');
+    if (session_id !== undefined)
+      seg_url.searchParams.append('session_id', session_id);
+
+    let params = {};
+    let response = await AIAAUtils.api_post_file(
+      seg_url.toString(),
+      params,
+      image_in
+    );
+
+    return response;
+  }
+
+  // TODO:: rewrite this
+  async dextr3d(model_name, params, file) {
+    let response = await this.call_server(
+      this.dextr3d_api,
+      model_name,
+      params,
+      file
+    );
+
+    return response;
+  }
+}
+
+class AIAAUtils {
+  static api_get(url) {
+    console.log('AIAAUtils - getting' + url);
     return axios
       .get(url)
       .then(function(response) {
@@ -127,16 +177,17 @@ export default class AIAAClient {
       });
   }
 
-  api_post_file(url, params, file) {
-    var formData = new FormData();
-    var fileName = 'test123.nii'; //AEH must have extension for AIAA to understand it
+  static api_post_file(url, params, file) {
+    console.log('AIAAUtils - posting' + url);
+    let formData = new FormData();
+    let fileName = 'data.nii'; // must have extension for AIAA to understand it
 
     formData.append('datapoint', file, fileName);
     formData.append('params', JSON.stringify(params));
 
     return axios
       .post(url, formData, {
-        responseType: 'arraybuffer', //AEH direct recieve as buffer array
+        responseType: 'arraybuffer', // direct recieve as buffer array
 
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -160,51 +211,5 @@ export default class AIAAClient {
       .finally(function() {
         // always executed
       });
-  }
-
-  async model_list() {
-    let response = await this.call_server(this.model_api);
-    let models = [];
-    this.cachedSegModels = [];
-    this.cachedAnnModels = [];
-    this.cachedDeepgrowModels = [];
-
-    for (let i = 0; i < response.data.length; ++i) {
-      models.push(response.data[i]);
-
-      if (response.data[i].type === 'annotation') {
-        this.cachedAnnModels.push(response.data[i]);
-      } else if (response.data[i].type === 'segmentation') {
-        this.cachedSegModels.push(response.data[i]);
-      } else if (response.data[i].type === 'deepgrow') {
-        this.cachedDeepgrowModels.push(response.data[i]);
-      } else {
-        console.log(response.data[i].name + ' has unsupported types');
-      }
-    }
-
-    return models;
-  }
-
-  async dextr3d(model_name, params, file) {
-    let response = await this.call_server(
-      this.dextr3d_api,
-      model_name,
-      params,
-      file
-    );
-
-    return response;
-  }
-
-  async segment(model_name, params, file) {
-    let response = await this.call_server(
-      this.segmentation_api,
-      model_name,
-      params,
-      file
-    );
-
-    return response;
   }
 }

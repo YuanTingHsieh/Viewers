@@ -1,15 +1,14 @@
 const commandsModule = ({ servicesManager, commandsManager }) => {
   const actions = {
-    segmentation: ({ viewports }) => {
+    segmentation: ({ viewports, model_name }) => {
       console.log('Nvidia AIAA - Running segmentation API.');
       const { AIAAService } = servicesManager.services;
       const { volume, client } = AIAAService;
       volume.getOrCreate(viewports).then(dataBuf => {
         const niiArr = volume.buffer2NiiArr(dataBuf);
         const blob = new Blob([niiArr], { type: 'application/octet-stream' });
-        const selector = 'model=' + client.currSegModel + '&output=image';
         client
-          .segment(selector, {}, blob)
+          .segmentation(model_name, blob)
           .then(response => {
             console.log('Nvidia AIAA - Got response back');
 

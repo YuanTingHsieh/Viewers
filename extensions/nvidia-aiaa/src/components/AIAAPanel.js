@@ -8,40 +8,57 @@ import './AIAAPanel.styl';
 export default class AIAAPanel extends Component {
   static propTypes = {
     client: PropTypes.object,
-    volume: PropTypes.object,
+    commandsManager: PropTypes.object,
   };
 
   static defaultProps = {
-    client: null,
-    volume: null,
+    client: undefined,
+    commandsManager: undefined,
   };
 
   constructor(props) {
     super(props);
     this.state = {
       aiaaServerURL: props.client.getServerURL(),
-      segModels: props.client.cachedSegModels,
-      annModels: props.client.cachedAnnModels,
-      deepgrowModels: props.client.cachedDeepgrowModels,
+      segModels: [],
+      annModels: [],
+      deepgrowModels: [],
       currSegModel: '',
       currAnnModel: '',
-      currDeepGrowModel: '',
+      currDeepgrowModel: '',
       currSegLabels: [],
       currAnnLabels: [],
     };
   }
 
   handleFetch = () => {
+    let segModels = [];
+    let annModels = [];
+    let deepgrowModels = [];
     this.props.client
       .model_list()
       .then(response => {
         console.log(response);
+
+        for (let i = 0; i < response.data.length; ++i) {
+          if (response.data[i].type === 'annotation') {
+            annModels.push(response.data[i]);
+          } else if (response.data[i].type === 'segmentation') {
+            segModels.push(response.data[i]);
+          } else if (response.data[i].type === 'deepgrow') {
+            deepgrowModels.push(response.data[i]);
+          } else {
+            console.log(
+              response.data[i].name + ' has unsupported types for this plugin'
+            );
+          }
+        }
       })
       .then(() => {
         this.setState({
-          segModels: this.props.client.cachedSegModels,
-          annModels: this.props.client.cachedAnnModels,
-          deepgrowModels: this.props.client.cachedDeepgrowModels,
+          segModels: segModels,
+          annModels: annModels,
+          deepgrowModels: deepgrowModels,
         });
       })
       .catch(error => {
@@ -62,7 +79,6 @@ export default class AIAAPanel extends Component {
         .getAttribute('aiaalabel')
         .split(',', 20),
     });
-    this.props.client.currSegModel = evt.target.value;
   };
 
   onChangeAnnModel = evt => {
@@ -72,7 +88,30 @@ export default class AIAAPanel extends Component {
         .getAttribute('aiaalabel')
         .split(',', 20),
     });
-    this.props.client.currAnnModel = evt.target.value;
+  };
+
+  onChangeDeepgrowModel = evt => {
+    this.setState({
+      currDeepgrowModel: evt.target.value,
+    });
+  };
+
+  onClickSegBtn = evt => {
+    // TODO::
+    console.log('seg button is clicked');
+    this.props.commandsManager.runCommand('segmentation', {
+      model_name: this.state.currSegModel,
+    });
+  };
+
+  onClickAnnBtn = evt => {
+    // TODO::
+    console.log('ann button is clicked');
+  };
+
+  onClickDeepgrowBtn = evt => {
+    // TODO::
+    console.log('deepgrow button is clicked');
   };
 
   render() {
@@ -91,7 +130,7 @@ export default class AIAAPanel extends Component {
             onBlur={this.onBlurSeverURL}
           />
           <button className="aiaaButton" onClick={this.handleFetch}>
-            <Icon name="reset" width="14px" height="14px" />
+            <Icon name="reset" width="12px" height="12px" />
           </button>
         </div>
 
@@ -115,39 +154,71 @@ export default class AIAAPanel extends Component {
           </a>
         </p>
 
-        <label> Segmentaion Models: </label>
+        <div className="segmentation">
+          <label> Segmentaion Models: </label>
+          <select
+            className="aiaaDropDown"
+            onChange={this.onChangeSegModel}
+            value={this.state.currSegModel}
+          >
+            <option key="default" value="default" aiaalabel=""></option>
+            {this.state.segModels.map(model => (
+              <option
+                key={model.name}
+                value={model.name}
+                aiaalabel={model.labels}
+              >{`${model.name} `}</option>
+            ))}
+          </select>
 
-        <select
-          className="aiaaDropDown"
-          onChange={this.onChangeSegModel}
-          value={this.state.currSegModel}
-        >
-          <option key="default" value="default" aiaalabel=""></option>
-          {this.state.segModels.map(model => (
-            <option
-              key={model.name}
-              value={model.name}
-              aiaalabel={model.labels}
-            >{`${model.name} `}</option>
-          ))}
-        </select>
+          <button className="aiaaButton" onClick={this.onClickSegBtn}>
+            <Icon name="cube" width="12px" height="12px" />
+          </button>
+        </div>
 
-        <label> Annotation (DExtr3D) Models: &nbsp;&nbsp;&nbsp;</label>
+        <div className="annotation">
+          <label> Annotation (DExtr3D) Models: &nbsp;&nbsp;&nbsp;</label>
+          <select
+            className="aiaaDropDown"
+            onChange={this.onChangeAnnModel}
+            value={this.state.currAnnModel}
+          >
+            <option key="default" value="default" aiaalabel=""></option>
+            {this.state.annModels.map(model => (
+              <option
+                key={model.name}
+                value={model.name}
+                aiaalabel={model.labels}
+              >{`${model.name} `}</option>
+            ))}
+          </select>
 
-        <select
-          className="aiaaDropDown"
-          onChange={this.onChangeAnnModel}
-          value={this.state.currAnnModel}
-        >
-          <option key="default" value="default" aiaalabel=""></option>
-          {this.state.annModels.map(model => (
-            <option
-              key={model.name}
-              value={model.name}
-              aiaalabel={model.labels}
-            >{`${model.name} `}</option>
-          ))}
-        </select>
+          <button className="aiaaButton" onClick={this.onClickAnnBtn}>
+            <Icon name="palette" width="12px" height="12px" />
+          </button>
+        </div>
+
+        <div className="deepgrow">
+          <label> DeepGrow Models: </label>
+          <select
+            className="aiaaDropDown"
+            onChange={this.onChangeDeepgrowModel}
+            value={this.state.currDeepgrowModel}
+          >
+            <option key="default" value="default" aiaalabel=""></option>
+            {this.state.deepgrowModels.map(model => (
+              <option
+                key={model.name}
+                value={model.name}
+                aiaalabel={model.labels}
+              >{`${model.name} `}</option>
+            ))}
+          </select>
+
+          <button className="aiaaButton" onClick={this.onClickDeepgrowBtn}>
+            <Icon name="brain" width="12px" height="12px" />
+          </button>
+        </div>
       </div>
     );
   }

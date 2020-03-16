@@ -33,9 +33,14 @@ export default {
    * @param {ServicesManager} params.servicesManager
    * @param {CommandsManager} params.commandsManager
    */
-  getPanelModule({ servicesManager }) {
+  getPanelModule({ servicesManager, commandsManager }) {
     const { AIAAService } = servicesManager.services;
-    const ConnectedAIAAPanel = () => <AIAAPanel client={AIAAService.client} />;
+    const ConnectedAIAAPanel = () => (
+      <AIAAPanel
+        client={AIAAService.client}
+        commandsManager={commandsManager}
+      />
+    );
     return {
       menuOptions: [
         {
