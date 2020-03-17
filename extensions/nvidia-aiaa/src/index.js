@@ -18,15 +18,14 @@ export default {
   preRegistration({ servicesManager, configuration = {} }) {
     configuration = {
       server_url: 'http://0.0.0.0:5000',
-      api_version: 'v1',
     };
     init({ servicesManager, configuration });
   },
   getToolbarModule() {
     return toolbarModule;
   },
-  getCommandsModule({ servicesManager, commandsManager }) {
-    return commandsModule({ servicesManager, commandsManager });
+  getCommandsModule({ servicesManager }) {
+    return commandsModule({ servicesManager });
   },
   /**
    * @param {object} params
@@ -34,11 +33,28 @@ export default {
    * @param {CommandsManager} params.commandsManager
    */
   getPanelModule({ servicesManager, commandsManager }) {
-    const { AIAAService } = servicesManager.services;
+    const { AIAAService, UINotificationService } = servicesManager.services;
     const ConnectedAIAAPanel = () => (
       <AIAAPanel
         client={AIAAService.client}
-        commandsManager={commandsManager}
+        onComplete={message => {
+          if (UINotificationService) UINotificationService.show(message);
+        }}
+        onSegmentation={model_name => {
+          commandsManager.runCommand('segmentation', {
+            model_name: model_name,
+          });
+        }}
+        onAnnotation={model_name => {
+          commandsManager.runCommand('dextr3d', {
+            model_name: model_name,
+          });
+        }}
+        onDeepgrow={model_name => {
+          commandsManager.runCommand('deepgrow', {
+            model_name: model_name,
+          });
+        }}
       />
     );
     return {

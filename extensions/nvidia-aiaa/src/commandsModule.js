@@ -1,38 +1,48 @@
-const commandsModule = ({ servicesManager, commandsManager }) => {
+const commandsModule = ({ servicesManager }) => {
+  const { AIAAService, UINotificationService } = servicesManager.services;
+  const { volume, client } = AIAAService;
+  const AIAAshow = (message, type = 'success', debug = true) => {
+    if (debug) {
+      console.log('NVIDIA AIAA - ' + message);
+    }
+    if (UINotificationService) {
+      UINotificationService.show({
+        title: 'NVIDIA AIAA',
+        message: message,
+        type: type,
+      });
+    }
+  };
   const actions = {
     segmentation: ({ viewports, model_name }) => {
-      console.log('Nvidia AIAA - Running segmentation API.');
-      const { AIAAService } = servicesManager.services;
-      const { volume, client } = AIAAService;
+      AIAAshow('Running segmentation API with ' + model_name);
       volume.getOrCreate(viewports).then(dataBuf => {
         const niiArr = volume.buffer2NiiArr(dataBuf);
         const blob = new Blob([niiArr], { type: 'application/octet-stream' });
         client
           .segmentation(model_name, blob)
           .then(response => {
-            console.log('Nvidia AIAA - Got response back');
-
             var niiBufferArr = response.data;
             if (niiBufferArr == undefined) {
-              console.log(
-                "Nvidia AIAA didn't return data. Check AIAA server logs"
+              AIAAshow(
+                "Server didn't return data. Check AIAA server logs",
+                'error'
               );
               return;
             }
             //const seriesInstanceUid = OHIF.NVIDIA.dataArg.seriesInstanceUid;
             //const maskImporter = new MaskImporter(seriesInstanceUid);
             //maskImporter.importNIFTI(niiBufferArr);
-            console.log('Nvidia AIAA - Segmentation completed');
-            window.alert('Nvidia AIAA - Segmentation completed');
+            AIAAshow('Segmentation completed');
           })
-          .catch(e => console.log('Nvidia AIAA - Error  ' + e));
+          .catch(e => AIAAshow(e, 'error'));
       });
     },
-    dextr3d: () => {
-      console.log('Nvidia AIAA - Running dextr3d API.');
+    dextr3d: ({ viewports, model_name }) => {
+      AIAAshow('Running dextr3d API with ' + model_name);
     },
-    deepgrow: () => {
-      console.log('Nvidia AIAA - Running deepgrow API.');
+    deepgrow: ({ viewports, model_name }) => {
+      AIAAshow('Running deepgrow API with ' + model_name);
     },
   };
 

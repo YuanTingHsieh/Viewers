@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 function set_cookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
-  console.log('AEH -------------------set cookie', name, ' value=', value);
+  console.log('Nvidia AIAA ---------------set cookie', name, ' value=', value);
 
   var cookie_string = name + '=' + escape(value);
 
@@ -30,10 +30,10 @@ function get_cookie(cookie_name) {
 }
 
 export default class AIAAClient {
-  constructor(server_url, api_version = 'v1') {
+  constructor(server_url) {
     this.server_url = new URL(server_url);
     // TODO:: implement dextr3d, deepgrow, mask2polygon, fixpolygon methods
-    this.api_version = api_version;
+    this.api_version = 'v1';
     this.dextr3d_api = 'dextr3d';
     this.deepgrow_api = 'deepgrow';
     this.mask2polygon_api = 'mask2polygon';
@@ -58,7 +58,6 @@ export default class AIAAClient {
 
   setServerURL(url, use_cookie = true) {
     this.server_url = url;
-    console.log('calling set server url');
     if (use_cookie) set_cookie('nvidiaAIAAServerUrl', url);
   }
 

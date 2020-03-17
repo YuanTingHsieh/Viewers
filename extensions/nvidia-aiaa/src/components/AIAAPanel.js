@@ -8,12 +8,18 @@ import './AIAAPanel.styl';
 export default class AIAAPanel extends Component {
   static propTypes = {
     client: PropTypes.object,
-    commandsManager: PropTypes.object,
+    onComplete: PropTypes.func,
+    onSegmentation: PropTypes.func,
+    onAnnotation: PropTypes.func,
+    onDeepgrow: PropTypes.func,
   };
 
   static defaultProps = {
     client: undefined,
-    commandsManager: undefined,
+    onComplete: undefined,
+    onSegmentation: undefined,
+    onAnnotation: undefined,
+    onDeepgrow: undefined,
   };
 
   constructor(props) {
@@ -60,9 +66,18 @@ export default class AIAAPanel extends Component {
           annModels: annModels,
           deepgrowModels: deepgrowModels,
         });
+        this.props.onComplete({
+          title: 'AIAA logs',
+          message: 'Fetched AIAA models complete!',
+          type: 'success',
+        });
       })
       .catch(error => {
-        console.log(error);
+        this.props.onComplete({
+          title: 'AIAA logs',
+          message: 'Fetched AIAA models failed!' + error,
+          type: 'error',
+        });
       });
   };
 
@@ -96,22 +111,16 @@ export default class AIAAPanel extends Component {
     });
   };
 
-  onClickSegBtn = evt => {
-    // TODO::
-    console.log('seg button is clicked');
-    this.props.commandsManager.runCommand('segmentation', {
-      model_name: this.state.currSegModel,
-    });
+  onClickSegBtn = () => {
+    this.props.onSegmentation(this.state.currSegModel);
   };
 
-  onClickAnnBtn = evt => {
-    // TODO::
-    console.log('ann button is clicked');
+  onClickAnnBtn = () => {
+    this.props.onAnnotation(this.state.currAnnModel);
   };
 
   onClickDeepgrowBtn = evt => {
-    // TODO::
-    console.log('deepgrow button is clicked');
+    this.props.onDeepgrow(this.state.currDeepgrowModel);
   };
 
   render() {

@@ -18,18 +18,15 @@ export default class AIAAVolume {
       seriesDescription: '',
     };
     this.volume = null;
-
-    this.getOrCreate = this.getOrCreate.bind(this);
   }
 
   getOrCreate = async viewports => {
-    if (this.volume === null) {
-      this.volume = await this._createDataVol(viewports);
-    }
+    // TODO: cache volume based on active view port IDs
+    this.volume = await this.createDataVol(viewports);
     return this.volume;
   };
 
-  _createDataVol = async viewports => {
+  createDataVol = async viewports => {
     console.log('createDataVol this takes some time .......');
     console.log(viewports);
     const { viewportSpecificData, activeViewportIndex } = viewports;
@@ -37,6 +34,7 @@ export default class AIAAVolume {
 
     // TODO: How to get correct stackState here
     var elements = cornerstone.getEnabledElements();
+    console.log(elements);
     const element = elements[0].element;
     const stackState = cornerstoneTools.getToolState(element, 'stack');
     console.log(stackState);
@@ -112,7 +110,7 @@ export default class AIAAVolume {
     const volDim = [z, x, y];
 
     let array = ndarray(buff, volDim);
-    const niiArray = this._serializeNifti(
+    const niiArray = this.serializeNifti(
       array,
       resolution,
       this.metadata.imagePositionPatient,
@@ -143,7 +141,7 @@ export default class AIAAVolume {
    * Add NIFTI-1 related headers to an image buffer to create an raw byte array
    * of NIFTI file.
    */
-  _serializeNifti = (
+  serializeNifti = (
     dst_array,
     resolution,
     imagePositionPatient,
