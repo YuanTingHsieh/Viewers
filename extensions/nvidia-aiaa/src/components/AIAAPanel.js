@@ -180,7 +180,6 @@ export default class AIAAPanel extends Component {
             <label htmlFor="tab-1" className="tab-label">Segmentaion</label>
 
             <div className="tab-content">
-              <p>Fully automated segmentation <b>without any user input</b>.  Just select any <i>segmentation</i> model and click to run</p>
               <table className="aiaaTable">
                 <tr>
                   <td colspan="3">Segmentaion Models:</td>
@@ -210,6 +209,7 @@ export default class AIAAPanel extends Component {
                   </td>
                 </tr>
               </table>
+              <p>Fully automated segmentation <b>without any user input</b>.  Just select any <i>segmentation</i> model and click to run</p>
             </div>
           </div>
 
@@ -218,8 +218,6 @@ export default class AIAAPanel extends Component {
             <label htmlFor="tab-2" className="tab-label">DExtr3D</label>
 
             <div className="tab-content">
-              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme points</i> of the organ.</p>
-              <p>Right click to add/collect extreme points (Min: <b>6 points</b> are required)</p>
               <table className="aiaaTable">
                 <tr>
                   <td colspan="3">Annotation (DExtr3D) Models:</td>
@@ -249,6 +247,8 @@ export default class AIAAPanel extends Component {
                   </td>
                 </tr>
               </table>
+              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme points</i> of the organ.</p>
+              <p>Select a model and <b>Right click</b> to add/collect extreme points (Min: <b>6 points</b> are required)</p>
             </div>
           </div>
 
@@ -257,9 +257,6 @@ export default class AIAAPanel extends Component {
             <label htmlFor="tab-3" className="tab-label">DeepGrow</label>
 
             <div className="tab-content">
-              <p>You can use deepgrow model to annotate <b>any organ</b>.</p>
-              <p>Right click to add <i>foreground points</i>.</p>
-              <p>Left click to add <i>background points</i>.</p>
               <table className="aiaaTable">
                 <tr>
                   <td colspan="3">DeepGrow Models:</td>
@@ -289,6 +286,8 @@ export default class AIAAPanel extends Component {
                   </td>
                 </tr>
               </table>
+              <p>You can use deepgrow model to annotate <b>any organ</b>.</p>
+              <p><b>Right click</b> to add <i>foreground points</i> or <b>Left click</b> to add <i>background points</i>.</p>
             </div>
           </div>
         </div>
