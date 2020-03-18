@@ -2,7 +2,6 @@ import React from 'react';
 
 import init from './init.js';
 import commandsModule from './commandsModule.js';
-import toolbarModule from './toolbarModule.js';
 import AIAAPanel from './components/AIAAPanel.js';
 
 export default {
@@ -20,9 +19,6 @@ export default {
       server_url: 'http://0.0.0.0:5000',
     };
     init({ servicesManager, configuration });
-  },
-  getToolbarModule() {
-    return toolbarModule;
   },
   getCommandsModule({ servicesManager }) {
     return commandsModule({ servicesManager });

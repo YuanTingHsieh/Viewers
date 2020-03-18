@@ -130,103 +130,167 @@ export default class AIAAPanel extends Component {
 
         <h3> NVIDIA Clara AIAA Panel</h3>
 
-        <div className="fetchModel">
-          AIAA server URL :
-          <input
-            name="aiaaServerURL"
-            type="text"
-            defaultValue={this.state.aiaaServerURL}
-            onBlur={this.onBlurSeverURL}
-          />
-          <button className="aiaaButton" onClick={this.handleFetch}>
-            <Icon name="reset" width="12px" height="12px" />
-          </button>
-        </div>
+        <table className="aiaaTable">
+         <tr>
+           <td colspan="3">AIAA server URL:</td>
+         </tr>
+         <tr>
+           <td width="80%">
+             <input
+               className="aiaaInput"
+               name="aiaaServerURL"
+               type="text"
+               defaultValue={this.state.aiaaServerURL}
+               onBlur={this.onBlurSeverURL}
+             />
+           </td>
+           <td width="2%">&nbsp;</td>
+           <td width="18%">
+             <button className="aiaaButton" onClick={this.handleFetch}>
+               <Icon name="reset" width="16px" height="16px" />
+             </button>
+            </td>
+          </tr>
+         <tr>
+           <td colspan="3">
+              <a
+                href={this.props.client.getModelsURL()}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                All models
+              </a>
 
-        <p>
-          <a
-            href={this.props.client.getModelsURL()}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            All models
-          </a>
+              <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
-          <b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b>
+              <a
+                href={this.props.client.getLogsURL()}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                AIAA Logs
+              </a>
+           </td>
+         </tr>
+        </table>
 
-          <a
-            href={this.props.client.getLogsURL()}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            AIAA Logs
-          </a>
-        </p>
+        <div className="tabs">
+          <div className="tab">
+            <input type="radio" name="css-tabs" id="tab-1" defaultChecked className="tab-switch"/>
+            <label htmlFor="tab-1" className="tab-label">Segmentaion</label>
 
-        <div className="segmentation">
-          <label> Segmentaion Models: </label>
-          <select
-            className="aiaaDropDown"
-            onChange={this.onChangeSegModel}
-            value={this.state.currSegModel}
-          >
-            <option key="default" value="default" aiaalabel=""></option>
-            {this.state.segModels.map(model => (
-              <option
-                key={model.name}
-                value={model.name}
-                aiaalabel={model.labels}
-              >{`${model.name} `}</option>
-            ))}
-          </select>
+            <div className="tab-content">
+              <p>Fully automated segmentation <b>without any user input</b>.  Just select any <i>segmentation</i> model and click to run</p>
+              <table className="aiaaTable">
+                <tr>
+                  <td colspan="3">Segmentaion Models:</td>
+                </tr>
+                <tr>
+                  <td width="80%">
+                    <select
+                      className="aiaaDropDown"
+                      onChange={this.onChangeSegModel}
+                      value={this.state.currSegModel}
+                    >
+                      <option key="default" value="default" aiaalabel=""></option>
+                      {this.state.segModels.map(model => (
+                        <option
+                          key={model.name}
+                          value={model.name}
+                          aiaalabel={model.labels}
+                        >{`${model.name} `}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td width="2%">&nbsp;</td>
+                  <td width="18%">
+                    <button className="aiaaButton" onClick={this.onClickSegBtn}>
+                      <Icon name="cube" width="16px" height="16px" />
+                    </button>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
 
-          <button className="aiaaButton" onClick={this.onClickSegBtn}>
-            <Icon name="cube" width="12px" height="12px" />
-          </button>
-        </div>
+          <div className="tab">
+            <input type="radio" name="css-tabs" id="tab-2" className="tab-switch"/>
+            <label htmlFor="tab-2" className="tab-label">DExtr3D</label>
 
-        <div className="annotation">
-          <label> Annotation (DExtr3D) Models: &nbsp;&nbsp;&nbsp;</label>
-          <select
-            className="aiaaDropDown"
-            onChange={this.onChangeAnnModel}
-            value={this.state.currAnnModel}
-          >
-            <option key="default" value="default" aiaalabel=""></option>
-            {this.state.annModels.map(model => (
-              <option
-                key={model.name}
-                value={model.name}
-                aiaalabel={model.labels}
-              >{`${model.name} `}</option>
-            ))}
-          </select>
+            <div className="tab-content">
+              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme points</i> of the organ.</p>
+              <p>Right click to add/collect extreme points (Min: <b>6 points</b> are required)</p>
+              <table className="aiaaTable">
+                <tr>
+                  <td colspan="3">Annotation (DExtr3D) Models:</td>
+                </tr>
+                <tr>
+                  <td width="80%">
+                    <select
+                      className="aiaaDropDown"
+                      onChange={this.onChangeAnnModel}
+                      value={this.state.currAnnModel}
+                    >
+                      <option key="default" value="default" aiaalabel=""></option>
+                      {this.state.annModels.map(model => (
+                        <option
+                          key={model.name}
+                          value={model.name}
+                          aiaalabel={model.labels}
+                        >{`${model.name} `}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td width="2%">&nbsp;</td>
+                  <td width="18%">
+                    <button className="aiaaButton" onClick={this.onClickAnnBtn}>
+                      <Icon name="palette" width="16px" height="16px" />
+                    </button>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
 
-          <button className="aiaaButton" onClick={this.onClickAnnBtn}>
-            <Icon name="palette" width="12px" height="12px" />
-          </button>
-        </div>
+          <div className="tab">
+            <input type="radio" name="css-tabs" id="tab-3" className="tab-switch"/>
+            <label htmlFor="tab-3" className="tab-label">DeepGrow</label>
 
-        <div className="deepgrow">
-          <label> DeepGrow Models: </label>
-          <select
-            className="aiaaDropDown"
-            onChange={this.onChangeDeepgrowModel}
-            value={this.state.currDeepgrowModel}
-          >
-            <option key="default" value="default" aiaalabel=""></option>
-            {this.state.deepgrowModels.map(model => (
-              <option
-                key={model.name}
-                value={model.name}
-                aiaalabel={model.labels}
-              >{`${model.name} `}</option>
-            ))}
-          </select>
-
-          <button className="aiaaButton" onClick={this.onClickDeepgrowBtn}>
-            <Icon name="brain" width="12px" height="12px" />
-          </button>
+            <div className="tab-content">
+              <p>You can use deepgrow model to annotate <b>any organ</b>.</p>
+              <p>Right click to add <i>foreground points</i>.</p>
+              <p>Left click to add <i>background points</i>.</p>
+              <table className="aiaaTable">
+                <tr>
+                  <td colspan="3">DeepGrow Models:</td>
+                </tr>
+                <tr>
+                  <td width="80%">
+                    <select
+                      className="aiaaDropDown"
+                      onChange={this.onChangeDeepgrowModel}
+                      value={this.state.currDeepgrowModel}
+                    >
+                      <option key="default" value="default" aiaalabel=""></option>
+                      {this.state.deepgrowModels.map(model => (
+                        <option
+                          key={model.name}
+                          value={model.name}
+                          aiaalabel={model.labels}
+                        >{`${model.name} `}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td width="2%">&nbsp;</td>
+                  <td width="18%">
+                    <button className="aiaaButton" onClick={this.onClickDeepgrowBtn}>
+                      <Icon name="brain" width="16px" height="16px" />
+                    </button>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     );
