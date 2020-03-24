@@ -1,6 +1,7 @@
 const commandsModule = ({ servicesManager }) => {
   const { AIAAService, UINotificationService } = servicesManager.services;
   const { volume, client } = AIAAService;
+
   const AIAAshow = (message, type = 'success', debug = true) => {
     if (debug) {
       console.log('NVIDIA AIAA - ' + message);
@@ -13,9 +14,11 @@ const commandsModule = ({ servicesManager }) => {
       });
     }
   };
+
   const actions = {
     segmentation: ({ viewports, model_name }) => {
       AIAAshow('Running segmentation API with ' + model_name);
+
       volume.getOrCreate(viewports).then(dataBuf => {
         const niiArr = volume.buffer2NiiArr(dataBuf);
         const blob = new Blob([niiArr], { type: 'application/octet-stream' });

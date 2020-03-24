@@ -2,11 +2,12 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
-import OHIF from '@ohif/core';
-import * as dcmjs from 'dcmjs';
 import cornerstoneTools from 'cornerstone-tools';
+import { utils, ServicesManager } from '@ohif/core';
 
 import './AIAAPanel.styl';
+import AIAAClient from '../AIAAService/AIAAClient.js';
+import { SegmentItem } from './index';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -21,6 +22,8 @@ ColoredCircle.propTypes = {
   color: PropTypes.array.isRequired,
 };
 
+const { studyMetadataManager } = utils;
+
 export default class AIAAPanel extends Component {
   static propTypes = {
     client: PropTypes.object,
@@ -28,6 +31,9 @@ export default class AIAAPanel extends Component {
     onSegmentation: PropTypes.func,
     onAnnotation: PropTypes.func,
     onDeepgrow: PropTypes.func,
+    studies: PropTypes.any,
+    viewports: PropTypes.any,
+    activeIndex: PropTypes.any,
   };
 
   static defaultProps = {
@@ -36,12 +42,43 @@ export default class AIAAPanel extends Component {
     onSegmentation: undefined,
     onAnnotation: undefined,
     onDeepgrow: undefined,
+    studies: undefined,
+    viewports: undefined,
+    activeIndex: undefined,
   };
 
   constructor(props) {
     super(props);
+
+    console.info(props);
+    const { viewports, activeIndex } = props;
+    console.info('activeIndex = ' + activeIndex);
+
+    const viewport = viewports[activeIndex];
+    console.info(viewport);
+
+    const {
+      StudyInstanceUID,
+      SeriesInstanceUID,
+      displaySetInstanceUID,
+    } = viewport;
+
+    console.info('StudyInstanceUID = ' + StudyInstanceUID);
+    console.info('SeriesInstanceUID = ' + SeriesInstanceUID);
+    console.info('displaySetInstanceUID = ' + displaySetInstanceUID);
+
+    const studyMetadata = studyMetadataManager.get(StudyInstanceUID);
+    console.info(studyMetadata);
+
+    const firstImageId = studyMetadata.getFirstImageId(displaySetInstanceUID);
+    console.info(firstImageId);
+
+    const aiaaServerURL = AIAAClient.getCookieURL();
+    console.info(aiaaServerURL);
+
     this.state = {
-      aiaaServerURL: props.client.getServerURL(),
+      aiaaServerURL: ((aiaaServerURL !== null) ? aiaaServerURL : 'http://0.0.0.0:5678/'),
+      firstImageId: firstImageId,
       segModels: [],
       annModels: [],
       deepgrowModels: [],
@@ -57,7 +94,9 @@ export default class AIAAPanel extends Component {
     let segModels = [];
     let annModels = [];
     let deepgrowModels = [];
-    this.props.client
+
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+    aiaaClient
       .model_list()
       .then(response => {
         console.log(response);
@@ -100,7 +139,6 @@ export default class AIAAPanel extends Component {
   onBlurSeverURL = evt => {
     let value = evt.target.value;
     this.setState({ aiaaServerURL: value });
-    this.props.client.setServerURL(value);
   };
 
   onChangeSegModel = evt => {
@@ -128,44 +166,101 @@ export default class AIAAPanel extends Component {
   };
 
   onClickSegBtn = () => {
-    this.props.onSegmentation(this.state.currSegModel);
   };
 
   onClickAnnBtn = () => {
-    this.props.onAnnotation(this.state.currAnnModel);
   };
 
   onClickDeepgrowBtn = evt => {
-    this.props.onDeepgrow(this.state.currDeepgrowModel);
+  };
+
+  onNewSegments = evt => {
+    // Refer XNATSegmentationPanel to create new segment (locally)
+  };
+
+  onDeleteSegments = evt => {
+    // Don't know for now.. but might be possible locally
   };
 
   onFetchSegments = evt => {
-    console.info(this.props);
+    // Reload segments? Also need to think how to sync local created segments back to DICOM series
   };
 
 
   render() {
+    console.info('Into render......');
+    console.info(this.state);
+    console.info(this.state.aiaaServerURL);
+    console.info(this.state.firstImageId);
+
+    /* CornerstoneTools */
     const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const colorLutTable = segmentationModule.state.colorLutTables[0];
-    //console.info(segmentationModule.state.colorLutTables);
+    const brushStackState = segmentationModule.state.series[this.state.firstImageId];
+    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
+
+    const segmentList = [];
+    if (labelmap3D) {
+      const uniqueSegmentIndexes = labelmap3D.labelmaps2D
+        .reduce((acc, labelmap2D) => {
+          if (labelmap2D) {
+            const segmentIndexes = labelmap2D.segmentsOnLabelmap;
+
+            for (let i = 0; i < segmentIndexes.length; i++) {
+              if (!acc.includes(segmentIndexes[i]) && segmentIndexes[i] !== 0) {
+                acc.push(segmentIndexes[i]);
+              }
+            }
+          }
+          return acc;
+        }, [])
+        .sort((a, b) => a - b);
+
+      console.info(uniqueSegmentIndexes);
+
+      const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+      const hasLabelmapMeta = labelmap3D.metadata && labelmap3D.metadata.data;
+
+      for (let i = 0; i < uniqueSegmentIndexes.length; i++) {
+        const segmentIndex = uniqueSegmentIndexes[i];
+        const color = colorLutTable[segmentIndex];
+        let segmentLabel = '(unlabeled)';
+        let segmentNumber = segmentIndex;
+
+        /* Meta */
+        if (hasLabelmapMeta) {
+          const segmentMeta = labelmap3D.metadata.data[segmentIndex];
+          if (segmentMeta) {
+            segmentNumber = segmentMeta.SegmentNumber;
+            segmentLabel = segmentMeta.SegmentLabel;
+          }
+        }
+
+        const segmentItem = {
+          number: segmentNumber,
+          label: segmentLabel,
+          index: segmentIndex,
+          color: color,
+        };
+        segmentList.push(segmentItem);
+      }
+    }
+
+    console.info(segmentList);
 
     return (
       <div className="aiaaPanel">
-        {/* ############################################## */}
-
         <h3> NVIDIA Clara AIAA Panel</h3>
-
         <h4><u>All Segments:</u></h4>
         <table>
           <tbody>
           <tr>
             <td>
-              <button className="segButton" onClick={this.onFetchSegments}>
+              <button className="segButton" onClick={this.onNewSegments}>
                 <Icon name="plus" width="12px" height="12px"/>
                 Add
               </button>
               &nbsp;
-              <button className="segButton" onClick={this.onFetchSegments}>
+              <button className="segButton" onClick={this.onDeleteSegments}>
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
               </button>
@@ -190,26 +285,13 @@ export default class AIAAPanel extends Component {
             </tr>
             </thead>
             <tbody>
-            <tr>
-              <td><input type="checkbox"/></td>
-              <td><ColoredCircle color={colorLutTable[1]}/></td>
-              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Liver</td>
-            </tr>
-            <tr>
-              <td><input type="checkbox"/></td>
-              <td><ColoredCircle color={colorLutTable[2]}/></td>
-              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Liver Tumor</td>
-            </tr>
-            <tr>
-              <td><input type="checkbox"/></td>
-              <td><ColoredCircle color={colorLutTable[3]}/></td>
-              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Spleen</td>
-            </tr>
-            <tr>
-              <td><input type="checkbox"/></td>
-              <td><ColoredCircle color={colorLutTable[4]}/></td>
-              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Pancreas</td>
-            </tr>
+            {segmentList.map(seg => (
+              <tr key={seg.number}>
+                <td><input type="checkbox"/></td>
+                <td><ColoredCircle color={seg.color}/></td>
+                <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">{seg.label}</td>
+              </tr>
+            ))}
             </tbody>
           </table>
         </div>
@@ -240,7 +322,7 @@ export default class AIAAPanel extends Component {
           <tr>
             <td colSpan="3">
               <a
-                href={this.props.client.getModelsURL()}
+                href={this.state.aiaaServerURL + 'models'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -250,7 +332,7 @@ export default class AIAAPanel extends Component {
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
               <a
-                href={this.props.client.getLogsURL()}
+                href={this.state.aiaaServerURL + 'logs?lines=100'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
