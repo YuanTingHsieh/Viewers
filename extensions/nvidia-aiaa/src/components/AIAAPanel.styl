@@ -6,7 +6,7 @@
   display: flex
   flex-direction: column
   color: var(--text-primary-color)
-  padding: 10px 0px 10px 10px
+  padding: 10 0 10 10px
 
   .aiaaButton
     border: 1px solid var(--ui-border-color-active)
@@ -32,13 +32,50 @@
   .aiaaInput
     width: 100%
 
+  .segButton
+    width: 80px
+    font-size: small
+
+  .segSection
+    height: 100px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid;
+
+  .segTable
+    border-collapse: collapse;
+    border: 1px dotted;
+    width: 100%;
+
+  .segTable tr:nth-child(even) {
+    background-color: #333333
+  }
+
+  .segTable tr th
+    background-color: #333333;
+    border: 1px dotted;
+    padding: 2px;
+
+  .segTable tr td
+    padding: 2px;
+
+  .segColor
+    height: 15px;
+    width: 15px;
+    background-color: #bbb;
+    border-radius: 50%;
+    display: inline-block
+
+  .segEdit
+    display: flex
+
   .aiaaTable
     border-collapse: collapse;
-    border: 0px solid;
+    border: 0 solid;
     width: 100%;
 
   .aiaaTable tr td
-    border: 0px solid;
+    border: 0 solid;
 
   .tabs {
     position: relative;
@@ -98,7 +135,7 @@
     width: 100%;
   }
 
-  .tab-switch:checked+.tab-label {
+  .tab-switch:checked + .tab-label {
     background: #EB4E01;
     color: #fff;
     border-bottom: 0;
@@ -108,7 +145,7 @@
     top: -0.0625rem;
   }
 
-  .tab-switch:checked+label+.tab-content {
+  .tab-switch:checked + label + .tab-content {
     z-index: 2;
     opacity: 1;
     transition: all 0.35s;

@@ -2,8 +2,24 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
+import OHIF from '@ohif/core';
+import * as dcmjs from 'dcmjs';
+import cornerstoneTools from 'cornerstone-tools';
 
 import './AIAAPanel.styl';
+
+const ColoredCircle = ({ color }) => {
+  return (
+    <span
+      className="segColor"
+      style={{ backgroundColor: `rgba(${color.join(',')})` }}
+    ></span>
+  );
+};
+
+ColoredCircle.propTypes = {
+  color: PropTypes.array.isRequired,
+};
 
 export default class AIAAPanel extends Component {
   static propTypes = {
@@ -55,7 +71,7 @@ export default class AIAAPanel extends Component {
             deepgrowModels.push(response.data[i]);
           } else {
             console.log(
-              response.data[i].name + ' has unsupported types for this plugin'
+              response.data[i].name + ' has unsupported types for this plugin',
             );
           }
         }
@@ -123,36 +139,106 @@ export default class AIAAPanel extends Component {
     this.props.onDeepgrow(this.state.currDeepgrowModel);
   };
 
+  onFetchSegments = evt => {
+    console.info(this.props);
+  };
+
+
   render() {
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const colorLutTable = segmentationModule.state.colorLutTables[0];
+    //console.info(segmentationModule.state.colorLutTables);
+
     return (
       <div className="aiaaPanel">
         {/* ############################################## */}
 
         <h3> NVIDIA Clara AIAA Panel</h3>
 
-        <table className="aiaaTable">
-         <tr>
-           <td colspan="3">AIAA server URL:</td>
-         </tr>
-         <tr>
-           <td width="80%">
-             <input
-               className="aiaaInput"
-               name="aiaaServerURL"
-               type="text"
-               defaultValue={this.state.aiaaServerURL}
-               onBlur={this.onBlurSeverURL}
-             />
-           </td>
-           <td width="2%">&nbsp;</td>
-           <td width="18%">
-             <button className="aiaaButton" onClick={this.handleFetch}>
-               <Icon name="reset" width="16px" height="16px" />
-             </button>
+        <h4><u>All Segments:</u></h4>
+        <table>
+          <tbody>
+          <tr>
+            <td>
+              <button className="segButton" onClick={this.onFetchSegments}>
+                <Icon name="plus" width="12px" height="12px"/>
+                Add
+              </button>
+              &nbsp;
+              <button className="segButton" onClick={this.onFetchSegments}>
+                <Icon name="trash" width="12px" height="12px"/>
+                Remove
+              </button>
+            </td>
+            <td align="right">
+              <button className="segButton" onClick={this.onFetchSegments}>
+                <Icon name="reset" width="12px" height="12px"/>
+                Reload
+              </button>
             </td>
           </tr>
-         <tr>
-           <td colspan="3">
+          </tbody>
+        </table>
+
+        <div className="segSection">
+          <table className="segTable">
+            <thead>
+            <tr>
+              <th width="2%">#</th>
+              <th width="8%">Color</th>
+              <th width="90%">Name</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td><input type="checkbox"/></td>
+              <td><ColoredCircle color={colorLutTable[1]}/></td>
+              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Liver</td>
+            </tr>
+            <tr>
+              <td><input type="checkbox"/></td>
+              <td><ColoredCircle color={colorLutTable[2]}/></td>
+              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Liver Tumor</td>
+            </tr>
+            <tr>
+              <td><input type="checkbox"/></td>
+              <td><ColoredCircle color={colorLutTable[3]}/></td>
+              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Spleen</td>
+            </tr>
+            <tr>
+              <td><input type="checkbox"/></td>
+              <td><ColoredCircle color={colorLutTable[4]}/></td>
+              <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">Pancreas</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>&nbsp;</p>
+        <table className="aiaaTable">
+          <tbody>
+          <tr>
+            <td colSpan="3">AIAA server URL:</td>
+          </tr>
+          <tr>
+            <td width="80%">
+              <input
+                className="aiaaInput"
+                name="aiaaServerURL"
+                type="text"
+                defaultValue={this.state.aiaaServerURL}
+                onBlur={this.onBlurSeverURL}
+              />
+            </td>
+            <td width="2%">&nbsp;</td>
+            <td width="18%">
+              <button className="aiaaButton" onClick={this.handleFetch}>
+                <Icon name="reset" width="16px" height="16px"/>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td colSpan="3">
               <a
                 href={this.props.client.getModelsURL()}
                 target="_blank"
@@ -170,8 +256,9 @@ export default class AIAAPanel extends Component {
               >
                 AIAA Logs
               </a>
-           </td>
-         </tr>
+            </td>
+          </tr>
+          </tbody>
         </table>
 
         <div className="tabs">
@@ -181,8 +268,9 @@ export default class AIAAPanel extends Component {
 
             <div className="tab-content">
               <table className="aiaaTable">
+                <tbody>
                 <tr>
-                  <td colspan="3">Segmentaion Models:</td>
+                  <td colSpan="3">Segmentaion Models:</td>
                 </tr>
                 <tr>
                   <td width="80%">
@@ -204,12 +292,14 @@ export default class AIAAPanel extends Component {
                   <td width="2%">&nbsp;</td>
                   <td width="18%">
                     <button className="aiaaButton" onClick={this.onClickSegBtn}>
-                      <Icon name="cube" width="16px" height="16px" />
+                      <Icon name="cube" width="16px" height="16px"/>
                     </button>
                   </td>
                 </tr>
+                </tbody>
               </table>
-              <p>Fully automated segmentation <b>without any user input</b>.  Just select any <i>segmentation</i> model and click to run</p>
+              <p>Fully automated segmentation <b>without any user input</b>. Just select any <i>segmentation</i> model
+                and click to run</p>
             </div>
           </div>
 
@@ -219,8 +309,9 @@ export default class AIAAPanel extends Component {
 
             <div className="tab-content">
               <table className="aiaaTable">
+                <tbody>
                 <tr>
-                  <td colspan="3">Annotation (DExtr3D) Models:</td>
+                  <td colSpan="3">Annotation (DExtr3D) Models:</td>
                 </tr>
                 <tr>
                   <td width="80%">
@@ -242,13 +333,16 @@ export default class AIAAPanel extends Component {
                   <td width="2%">&nbsp;</td>
                   <td width="18%">
                     <button className="aiaaButton" onClick={this.onClickAnnBtn}>
-                      <Icon name="palette" width="16px" height="16px" />
+                      <Icon name="palette" width="16px" height="16px"/>
                     </button>
                   </td>
                 </tr>
+                </tbody>
               </table>
-              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme points</i> of the organ.</p>
-              <p>Select a model and <b>Right click</b> to add/collect extreme points (Min: <b>6 points</b> are required)</p>
+              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme
+                points</i> of the organ.</p>
+              <p>Select a model and <b>Right click</b> to add/collect extreme points (Min: <b>6 points</b> are
+                required)</p>
             </div>
           </div>
 
@@ -258,8 +352,9 @@ export default class AIAAPanel extends Component {
 
             <div className="tab-content">
               <table className="aiaaTable">
+                <tbody>
                 <tr>
-                  <td colspan="3">DeepGrow Models:</td>
+                  <td colSpan="3">DeepGrow Models:</td>
                 </tr>
                 <tr>
                   <td width="80%">
@@ -281,13 +376,15 @@ export default class AIAAPanel extends Component {
                   <td width="2%">&nbsp;</td>
                   <td width="18%">
                     <button className="aiaaButton" onClick={this.onClickDeepgrowBtn}>
-                      <Icon name="brain" width="16px" height="16px" />
+                      <Icon name="brain" width="16px" height="16px"/>
                     </button>
                   </td>
                 </tr>
+                </tbody>
               </table>
               <p>You can use deepgrow model to annotate <b>any organ</b>.</p>
-              <p><b>Right click</b> to add <i>foreground points</i> or <b>Left click</b> to add <i>background points</i>.</p>
+              <p><b>Right click</b> to add <i>foreground points</i> or <b>Left click</b> to add <i>background
+                points</i>.</p>
             </div>
           </div>
         </div>
