@@ -3,11 +3,12 @@ import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
 import cornerstoneTools from 'cornerstone-tools';
-import { utils, ServicesManager } from '@ohif/core';
+import { utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
 import AIAAClient from '../AIAAService/AIAAClient.js';
 import { SegmentItem } from './index';
+import AIAATable from './AIAATable';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -28,9 +29,6 @@ export default class AIAAPanel extends Component {
   static propTypes = {
     client: PropTypes.object,
     onComplete: PropTypes.func,
-    onSegmentation: PropTypes.func,
-    onAnnotation: PropTypes.func,
-    onDeepgrow: PropTypes.func,
     studies: PropTypes.any,
     viewports: PropTypes.any,
     activeIndex: PropTypes.any,
@@ -39,9 +37,6 @@ export default class AIAAPanel extends Component {
   static defaultProps = {
     client: undefined,
     onComplete: undefined,
-    onSegmentation: undefined,
-    onAnnotation: undefined,
-    onDeepgrow: undefined,
     studies: undefined,
     viewports: undefined,
     activeIndex: undefined,
@@ -77,16 +72,12 @@ export default class AIAAPanel extends Component {
     console.info(aiaaServerURL);
 
     this.state = {
-      aiaaServerURL: ((aiaaServerURL !== null) ? aiaaServerURL : 'http://0.0.0.0:5678/'),
+      aiaaServerURL:
+        aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       firstImageId: firstImageId,
       segModels: [],
       annModels: [],
       deepgrowModels: [],
-      currSegModel: '',
-      currAnnModel: '',
-      currDeepgrowModel: '',
-      currSegLabels: [],
-      currAnnLabels: [],
     };
   }
 
@@ -110,7 +101,7 @@ export default class AIAAPanel extends Component {
             deepgrowModels.push(response.data[i]);
           } else {
             console.log(
-              response.data[i].name + ' has unsupported types for this plugin',
+              response.data[i].name + ' has unsupported types for this plugin'
             );
           }
         }
@@ -141,38 +132,11 @@ export default class AIAAPanel extends Component {
     this.setState({ aiaaServerURL: value });
   };
 
-  onChangeSegModel = evt => {
-    this.setState({
-      currSegModel: evt.target.value,
-      currSegLabels: evt.target.selectedOptions[0]
-        .getAttribute('aiaalabel')
-        .split(',', 20),
-    });
-  };
+  onClickSegBtn = () => {};
 
-  onChangeAnnModel = evt => {
-    this.setState({
-      currAnnModel: evt.target.value,
-      currAnnLabels: evt.target.selectedOptions[0]
-        .getAttribute('aiaalabel')
-        .split(',', 20),
-    });
-  };
+  onClickAnnBtn = () => {};
 
-  onChangeDeepgrowModel = evt => {
-    this.setState({
-      currDeepgrowModel: evt.target.value,
-    });
-  };
-
-  onClickSegBtn = () => {
-  };
-
-  onClickAnnBtn = () => {
-  };
-
-  onClickDeepgrowBtn = evt => {
-  };
+  onClickDeepgrowBtn = evt => {};
 
   onNewSegments = evt => {
     // Refer XNATSegmentationPanel to create new segment (locally)
@@ -186,7 +150,6 @@ export default class AIAAPanel extends Component {
     // Reload segments? Also need to think how to sync local created segments back to DICOM series
   };
 
-
   render() {
     console.info('Into render......');
     console.info(this.state);
@@ -195,8 +158,11 @@ export default class AIAAPanel extends Component {
 
     /* CornerstoneTools */
     const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const brushStackState = segmentationModule.state.series[this.state.firstImageId];
-    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
+    const brushStackState =
+      segmentationModule.state.series[this.state.firstImageId];
+    const labelmap3D = brushStackState
+      ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex]
+      : null;
 
     const segmentList = [];
     if (labelmap3D) {
@@ -217,7 +183,8 @@ export default class AIAAPanel extends Component {
 
       console.info(uniqueSegmentIndexes);
 
-      const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+      const colorLutTable =
+        segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
       const hasLabelmapMeta = labelmap3D.metadata && labelmap3D.metadata.data;
 
       for (let i = 0; i < uniqueSegmentIndexes.length; i++) {
@@ -250,48 +217,60 @@ export default class AIAAPanel extends Component {
     return (
       <div className="aiaaPanel">
         <h3> NVIDIA Clara AIAA Panel</h3>
-        <h4><u>All Segments:</u></h4>
+        <h4>
+          <u>All Segments:</u>
+        </h4>
         <table>
           <tbody>
-          <tr>
-            <td>
-              <button className="segButton" onClick={this.onNewSegments}>
-                <Icon name="plus" width="12px" height="12px"/>
-                Add
-              </button>
-              &nbsp;
-              <button className="segButton" onClick={this.onDeleteSegments}>
-                <Icon name="trash" width="12px" height="12px"/>
-                Remove
-              </button>
-            </td>
-            <td align="right">
-              <button className="segButton" onClick={this.onFetchSegments}>
-                <Icon name="reset" width="12px" height="12px"/>
-                Reload
-              </button>
-            </td>
-          </tr>
+            <tr>
+              <td>
+                <button className="segButton" onClick={this.onNewSegments}>
+                  <Icon name="plus" width="12px" height="12px" />
+                  Add
+                </button>
+                &nbsp;
+                <button className="segButton" onClick={this.onDeleteSegments}>
+                  <Icon name="trash" width="12px" height="12px" />
+                  Remove
+                </button>
+              </td>
+              <td align="right">
+                <button className="segButton" onClick={this.onFetchSegments}>
+                  <Icon name="reset" width="12px" height="12px" />
+                  Reload
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
 
         <div className="segSection">
           <table className="segTable">
             <thead>
-            <tr>
-              <th width="2%">#</th>
-              <th width="8%">Color</th>
-              <th width="90%">Name</th>
-            </tr>
+              <tr>
+                <th width="2%">#</th>
+                <th width="8%">Color</th>
+                <th width="90%">Name</th>
+              </tr>
             </thead>
             <tbody>
-            {segmentList.map(seg => (
-              <tr key={seg.number}>
-                <td><input type="checkbox"/></td>
-                <td><ColoredCircle color={seg.color}/></td>
-                <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">{seg.label}</td>
-              </tr>
-            ))}
+              {segmentList.map(seg => (
+                <tr key={seg.number}>
+                  <td>
+                    <input type="checkbox" />
+                  </td>
+                  <td>
+                    <ColoredCircle color={seg.color} />
+                  </td>
+                  <td
+                    className="segEdit"
+                    contentEditable="true"
+                    suppressContentEditableWarning="true"
+                  >
+                    {seg.label}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -299,174 +278,139 @@ export default class AIAAPanel extends Component {
         <p>&nbsp;</p>
         <table className="aiaaTable">
           <tbody>
-          <tr>
-            <td colSpan="3">AIAA server URL:</td>
-          </tr>
-          <tr>
-            <td width="80%">
-              <input
-                className="aiaaInput"
-                name="aiaaServerURL"
-                type="text"
-                defaultValue={this.state.aiaaServerURL}
-                onBlur={this.onBlurSeverURL}
-              />
-            </td>
-            <td width="2%">&nbsp;</td>
-            <td width="18%">
-              <button className="aiaaButton" onClick={this.handleFetch}>
-                <Icon name="reset" width="16px" height="16px"/>
-              </button>
-            </td>
-          </tr>
-          <tr>
-            <td colSpan="3">
-              <a
-                href={this.state.aiaaServerURL + 'models'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                All models
-              </a>
+            <tr>
+              <td colSpan="3">AIAA server URL:</td>
+            </tr>
+            <tr>
+              <td width="80%">
+                <input
+                  className="aiaaInput"
+                  name="aiaaServerURL"
+                  type="text"
+                  defaultValue={this.state.aiaaServerURL}
+                  onBlur={this.onBlurSeverURL}
+                />
+              </td>
+              <td width="2%">&nbsp;</td>
+              <td width="18%">
+                <button className="aiaaButton" onClick={this.handleFetch}>
+                  <Icon name="reset" width="16px" height="16px" />
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colSpan="3">
+                <a
+                  href={this.state.aiaaServerURL + 'models'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  All models
+                </a>
 
-              <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
+                <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
-              <a
-                href={this.state.aiaaServerURL + 'logs?lines=100'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                AIAA Logs
-              </a>
-            </td>
-          </tr>
+                <a
+                  href={this.state.aiaaServerURL + 'logs?lines=100'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  AIAA Logs
+                </a>
+              </td>
+            </tr>
           </tbody>
         </table>
 
         <div className="tabs">
           <div className="tab">
-            <input type="radio" name="css-tabs" id="tab-1" defaultChecked className="tab-switch"/>
-            <label htmlFor="tab-1" className="tab-label">Segmentaion</label>
+            <input
+              type="radio"
+              name="css-tabs"
+              id="tab-1"
+              defaultChecked
+              className="tab-switch"
+            />
+            <label htmlFor="tab-1" className="tab-label">
+              Segmentation
+            </label>
 
             <div className="tab-content">
-              <table className="aiaaTable">
-                <tbody>
-                <tr>
-                  <td colSpan="3">Segmentaion Models:</td>
-                </tr>
-                <tr>
-                  <td width="80%">
-                    <select
-                      className="aiaaDropDown"
-                      onChange={this.onChangeSegModel}
-                      value={this.state.currSegModel}
-                    >
-                      <option key="default" value="default" aiaalabel=""></option>
-                      {this.state.segModels.map(model => (
-                        <option
-                          key={model.name}
-                          value={model.name}
-                          aiaalabel={model.labels}
-                        >{`${model.name} `}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td width="2%">&nbsp;</td>
-                  <td width="18%">
-                    <button className="aiaaButton" onClick={this.onClickSegBtn}>
-                      <Icon name="cube" width="16px" height="16px"/>
-                    </button>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
-              <p>Fully automated segmentation <b>without any user input</b>. Just select any <i>segmentation</i> model
-                and click to run</p>
+              <AIAATable
+                title="Segmentation Models:"
+                models={this.state.segModels}
+                api_call={this.onClickSegBtn}
+                usage={
+                  <p>
+                    Fully automated segmentation <b>without any user input</b>.
+                    Just select any <i>segmentation</i> model and click to run
+                  </p>
+                }
+              />
             </div>
           </div>
 
           <div className="tab">
-            <input type="radio" name="css-tabs" id="tab-2" className="tab-switch"/>
-            <label htmlFor="tab-2" className="tab-label">DExtr3D</label>
+            <input
+              type="radio"
+              name="css-tabs"
+              id="tab-2"
+              className="tab-switch"
+            />
+            <label htmlFor="tab-2" className="tab-label">
+              DExtr3D
+            </label>
 
             <div className="tab-content">
-              <table className="aiaaTable">
-                <tbody>
-                <tr>
-                  <td colSpan="3">Annotation (DExtr3D) Models:</td>
-                </tr>
-                <tr>
-                  <td width="80%">
-                    <select
-                      className="aiaaDropDown"
-                      onChange={this.onChangeAnnModel}
-                      value={this.state.currAnnModel}
-                    >
-                      <option key="default" value="default" aiaalabel=""></option>
-                      {this.state.annModels.map(model => (
-                        <option
-                          key={model.name}
-                          value={model.name}
-                          aiaalabel={model.labels}
-                        >{`${model.name} `}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td width="2%">&nbsp;</td>
-                  <td width="18%">
-                    <button className="aiaaButton" onClick={this.onClickAnnBtn}>
-                      <Icon name="palette" width="16px" height="16px"/>
-                    </button>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
-              <p>Generally <b>more accurate</b> but requires user or segmentation model to <i>select/propose extreme
-                points</i> of the organ.</p>
-              <p>Select a model and <b>Right click</b> to add/collect extreme points (Min: <b>6 points</b> are
-                required)</p>
+              <AIAATable
+                title="Annotation (DExtr3D) Models:"
+                models={this.state.annModels}
+                api_call={this.onClickAnnBtn}
+                usage={
+                  <div>
+                    <p>
+                      Generally <b>more accurate</b> but requires user or
+                      segmentation model to <i>select/propose extreme points</i>{' '}
+                      of the organ.
+                    </p>
+                    <p>
+                      Select a model and <b>Right click</b> to add/collect
+                      extreme points (Min: <b>6 points</b> are required)
+                    </p>
+                  </div>
+                }
+              />
             </div>
           </div>
 
           <div className="tab">
-            <input type="radio" name="css-tabs" id="tab-3" className="tab-switch"/>
-            <label htmlFor="tab-3" className="tab-label">DeepGrow</label>
+            <input
+              type="radio"
+              name="css-tabs"
+              id="tab-3"
+              className="tab-switch"
+            />
+            <label htmlFor="tab-3" className="tab-label">
+              DeepGrow
+            </label>
 
             <div className="tab-content">
-              <table className="aiaaTable">
-                <tbody>
-                <tr>
-                  <td colSpan="3">DeepGrow Models:</td>
-                </tr>
-                <tr>
-                  <td width="80%">
-                    <select
-                      className="aiaaDropDown"
-                      onChange={this.onChangeDeepgrowModel}
-                      value={this.state.currDeepgrowModel}
-                    >
-                      <option key="default" value="default" aiaalabel=""></option>
-                      {this.state.deepgrowModels.map(model => (
-                        <option
-                          key={model.name}
-                          value={model.name}
-                          aiaalabel={model.labels}
-                        >{`${model.name} `}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td width="2%">&nbsp;</td>
-                  <td width="18%">
-                    <button className="aiaaButton" onClick={this.onClickDeepgrowBtn}>
-                      <Icon name="brain" width="16px" height="16px"/>
-                    </button>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
-              <p>You can use deepgrow model to annotate <b>any organ</b>.</p>
-              <p><b>Right click</b> to add <i>foreground points</i> or <b>Left click</b> to add <i>background
-                points</i>.</p>
+              <AIAATable
+                title="DeepGrow Models:"
+                models={this.state.deepgrowModels}
+                api_call={this.onClickDeepgrowBtn}
+                usage={
+                  <div>
+                    <p>
+                      You can use deepgrow model to annotate <b>any organ</b>.
+                    </p>
+                    <p>
+                      <b>Right click</b> to add <i>foreground points</i> or{' '}
+                      <b>Left click</b> to add <i>background points</i>.
+                    </p>
+                  </div>
+                }
+              />
             </div>
           </div>
         </div>

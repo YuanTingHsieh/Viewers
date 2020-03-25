@@ -38,7 +38,6 @@ const panelModule = ({ servicesManager, commandsManager }) => {
   );
   */
 
-
   return {
     menuOptions: [
       {
