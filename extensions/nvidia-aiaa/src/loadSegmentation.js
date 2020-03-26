@@ -8,7 +8,7 @@ const { DicomLoaderService } = OHIF.utils;
 export default async function loadSegmentation(
   segDisplaySet,
   referencedDisplaySet,
-  studies
+  studies,
 ) {
   const { StudyInstanceUID } = referencedDisplaySet;
 
@@ -18,7 +18,7 @@ export default async function loadSegmentation(
 
   const segArrayBuffer = await DicomLoaderService.findDicomDataPromise(
     segDisplaySet,
-    studies
+    studies,
   );
 
   const dicomData = dcmjs.data.DicomMessage.readFile(segArrayBuffer);
@@ -28,11 +28,13 @@ export default async function loadSegmentation(
   const imageIds = _getImageIdsForDisplaySet(
     studies,
     StudyInstanceUID,
-    referencedDisplaySet.SeriesInstanceUID
+    referencedDisplaySet.SeriesInstanceUID,
   );
 
-  const results = _parseSeg(segArrayBuffer, imageIds);
+  console.info('Fetching All Images for SEG');
+  console.info(imageIds);
 
+  const results = _parseSeg(segArrayBuffer, imageIds);
   if (!results) {
     throw new Error('Fractional segmentations are not yet supported');
   }
@@ -49,7 +51,7 @@ export default async function loadSegmentation(
     labelmapIndex,
     segMetadata,
     imageIds.length,
-    segmentsOnFrame
+    segmentsOnFrame,
   );
 
   segDisplaySet.labelmapIndex = labelmapIndex;
@@ -80,17 +82,17 @@ function _parseSeg(arrayBuffer, imageIds) {
   return dcmjs.adapters.Cornerstone.Segmentation.generateToolState(
     imageIds,
     arrayBuffer,
-    cornerstone.metaData
+    cornerstone.metaData,
   );
 }
 
 function _getImageIdsForDisplaySet(
   studies,
   StudyInstanceUID,
-  SeriesInstanceUID
+  SeriesInstanceUID,
 ) {
   const study = studies.find(
-    study => study.StudyInstanceUID === StudyInstanceUID
+    study => study.StudyInstanceUID === StudyInstanceUID,
   );
 
   const displaySets = study.displaySets.filter(displaySet => {
@@ -99,7 +101,7 @@ function _getImageIdsForDisplaySet(
 
   if (displaySets.length > 1) {
     console.warn(
-      'More than one display set with the same SeriesInstanceUID. This is not supported yet...'
+      'More than one display set with the same SeriesInstanceUID. This is not supported yet...',
     );
     // TODO -> We could make check the instance list and see if any match?
     // Do we split the segmentation into two cornerstoneTools segmentations if there are images in both series?

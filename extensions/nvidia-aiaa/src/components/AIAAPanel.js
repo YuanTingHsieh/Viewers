@@ -7,7 +7,6 @@ import { utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
 import AIAAClient from '../AIAAService/AIAAClient.js';
-import { SegmentItem } from './index';
 import AIAATable from './AIAATable';
 
 const ColoredCircle = ({ color }) => {
@@ -101,7 +100,7 @@ export default class AIAAPanel extends Component {
             deepgrowModels.push(response.data[i]);
           } else {
             console.log(
-              response.data[i].name + ' has unsupported types for this plugin'
+              response.data[i].name + ' has unsupported types for this plugin',
             );
           }
         }
@@ -132,11 +131,14 @@ export default class AIAAPanel extends Component {
     this.setState({ aiaaServerURL: value });
   };
 
-  onClickSegBtn = () => {};
+  onClickSegBtn = () => {
+  };
 
-  onClickAnnBtn = () => {};
+  onClickAnnBtn = () => {
+  };
 
-  onClickDeepgrowBtn = evt => {};
+  onClickDeepgrowBtn = evt => {
+  };
 
   onNewSegments = evt => {
     // Refer XNATSegmentationPanel to create new segment (locally)
@@ -222,55 +224,55 @@ export default class AIAAPanel extends Component {
         </h4>
         <table>
           <tbody>
-            <tr>
-              <td>
-                <button className="segButton" onClick={this.onNewSegments}>
-                  <Icon name="plus" width="12px" height="12px" />
-                  Add
-                </button>
-                &nbsp;
-                <button className="segButton" onClick={this.onDeleteSegments}>
-                  <Icon name="trash" width="12px" height="12px" />
-                  Remove
-                </button>
-              </td>
-              <td align="right">
-                <button className="segButton" onClick={this.onFetchSegments}>
-                  <Icon name="reset" width="12px" height="12px" />
-                  Reload
-                </button>
-              </td>
-            </tr>
+          <tr>
+            <td>
+              <button className="segButton" onClick={this.onNewSegments}>
+                <Icon name="plus" width="12px" height="12px"/>
+                Add
+              </button>
+              &nbsp;
+              <button className="segButton" onClick={this.onDeleteSegments}>
+                <Icon name="trash" width="12px" height="12px"/>
+                Remove
+              </button>
+            </td>
+            <td align="right">
+              <button className="segButton" onClick={this.onFetchSegments}>
+                <Icon name="reset" width="12px" height="12px"/>
+                Reload
+              </button>
+            </td>
+          </tr>
           </tbody>
         </table>
 
         <div className="segSection">
           <table className="segTable">
             <thead>
-              <tr>
-                <th width="2%">#</th>
-                <th width="8%">Color</th>
-                <th width="90%">Name</th>
-              </tr>
+            <tr>
+              <th width="2%">#</th>
+              <th width="8%">Color</th>
+              <th width="90%">Name</th>
+            </tr>
             </thead>
             <tbody>
-              {segmentList.map(seg => (
-                <tr key={seg.number}>
-                  <td>
-                    <input type="checkbox" />
-                  </td>
-                  <td>
-                    <ColoredCircle color={seg.color} />
-                  </td>
-                  <td
-                    className="segEdit"
-                    contentEditable="true"
-                    suppressContentEditableWarning="true"
-                  >
-                    {seg.label}
-                  </td>
-                </tr>
-              ))}
+            {segmentList.map(seg => (
+              <tr key={seg.number}>
+                <td>
+                  <input type="checkbox"/>
+                </td>
+                <td>
+                  <ColoredCircle color={seg.color}/>
+                </td>
+                <td
+                  className="segEdit"
+                  contentEditable="true"
+                  suppressContentEditableWarning="true"
+                >
+                  {seg.label}
+                </td>
+              </tr>
+            ))}
             </tbody>
           </table>
         </div>
@@ -278,47 +280,47 @@ export default class AIAAPanel extends Component {
         <p>&nbsp;</p>
         <table className="aiaaTable">
           <tbody>
-            <tr>
-              <td colSpan="3">AIAA server URL:</td>
-            </tr>
-            <tr>
-              <td width="80%">
-                <input
-                  className="aiaaInput"
-                  name="aiaaServerURL"
-                  type="text"
-                  defaultValue={this.state.aiaaServerURL}
-                  onBlur={this.onBlurSeverURL}
-                />
-              </td>
-              <td width="2%">&nbsp;</td>
-              <td width="18%">
-                <button className="aiaaButton" onClick={this.handleFetch}>
-                  <Icon name="reset" width="16px" height="16px" />
-                </button>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan="3">
-                <a
-                  href={this.state.aiaaServerURL + 'models'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  All models
-                </a>
+          <tr>
+            <td colSpan="3">AIAA server URL:</td>
+          </tr>
+          <tr>
+            <td width="80%">
+              <input
+                className="aiaaInput"
+                name="aiaaServerURL"
+                type="text"
+                defaultValue={this.state.aiaaServerURL}
+                onBlur={this.onBlurSeverURL}
+              />
+            </td>
+            <td width="2%">&nbsp;</td>
+            <td width="18%">
+              <button className="aiaaButton" onClick={this.handleFetch}>
+                <Icon name="reset" width="16px" height="16px"/>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td colSpan="3">
+              <a
+                href={this.state.aiaaServerURL + 'models'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                All models
+              </a>
 
-                <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
+              <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
-                <a
-                  href={this.state.aiaaServerURL + 'logs?lines=100'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  AIAA Logs
-                </a>
-              </td>
-            </tr>
+              <a
+                href={this.state.aiaaServerURL + 'logs?lines=100'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                AIAA Logs
+              </a>
+            </td>
+          </tr>
           </tbody>
         </table>
 
