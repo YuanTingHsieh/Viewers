@@ -193,6 +193,7 @@ export default class AIAAPanel extends Component {
         const segmentIndex = uniqueSegmentIndexes[i];
         const color = colorLutTable[segmentIndex];
         let segmentLabel = '(unlabeled)';
+        let segmentDescription = '';
         let segmentNumber = segmentIndex;
 
         /* Meta */
@@ -201,6 +202,7 @@ export default class AIAAPanel extends Component {
           if (segmentMeta) {
             segmentNumber = segmentMeta.SegmentNumber;
             segmentLabel = segmentMeta.SegmentLabel;
+            segmentDescription = segmentMeta.SegmentDescription;
           }
         }
 
@@ -209,6 +211,7 @@ export default class AIAAPanel extends Component {
           label: segmentLabel,
           index: segmentIndex,
           color: color,
+          desc: segmentDescription
         };
         segmentList.push(segmentItem);
       }
@@ -252,7 +255,8 @@ export default class AIAAPanel extends Component {
             <tr>
               <th width="2%">#</th>
               <th width="8%">Color</th>
-              <th width="90%">Name</th>
+              <th width="60%">Name</th>
+              <th width="30%">Desc</th>
             </tr>
             </thead>
             <tbody>
@@ -271,6 +275,7 @@ export default class AIAAPanel extends Component {
                 >
                   {seg.label}
                 </td>
+                <td>{seg.desc}</td>
               </tr>
             ))}
             </tbody>
