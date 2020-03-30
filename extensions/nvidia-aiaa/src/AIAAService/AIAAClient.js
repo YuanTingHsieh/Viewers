@@ -1,4 +1,4 @@
-import axios from 'axios';
+import AIAAUtils from './AIAAUtils';
 
 function set_cookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
   console.log('Nvidia AIAA ---------------set cookie', name, ' value=', value);
@@ -22,7 +22,7 @@ function set_cookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
 
 function get_cookie(cookie_name) {
   var results = document.cookie.match(
-    '(^|;) ?' + cookie_name + '=([^;]*)(;|$)'
+    '(^|;) ?' + cookie_name + '=([^;]*)(;|$)',
   );
 
   if (results) return unescape(results[2]);
@@ -81,7 +81,7 @@ export default class AIAAClient {
     api,
     query = undefined,
     params = undefined,
-    files = undefined
+    files = undefined,
   ) {
     let endpoint = this.server_url + '/' + this.api_version + '/' + api;
 
@@ -137,7 +137,7 @@ export default class AIAAClient {
     let response = await AIAAUtils.api_post_file(
       seg_url.toString(),
       params,
-      image_in
+      image_in,
     );
 
     return response;
@@ -149,66 +149,9 @@ export default class AIAAClient {
       this.dextr3d_api,
       model_name,
       params,
-      file
+      file,
     );
 
     return response;
-  }
-}
-
-class AIAAUtils {
-  static api_get(url) {
-    console.log('AIAAUtils - getting' + url);
-    return axios
-      .get(url)
-      .then(function(response) {
-        // handle success
-        console.log(response);
-        return response;
-      })
-      .catch(function(error) {
-        // handle error
-        console.log(error);
-        return error;
-      })
-      .finally(function() {
-        // always executed
-      });
-  }
-
-  static api_post_file(url, params, file) {
-    console.log('AIAAUtils - posting' + url);
-    let formData = new FormData();
-    let fileName = 'data.nii'; // must have extension for AIAA to understand it
-
-    formData.append('datapoint', file, fileName);
-    formData.append('params', JSON.stringify(params));
-
-    return axios
-      .post(url, formData, {
-        responseType: 'arraybuffer', // direct recieve as buffer array
-
-        headers: {
-          'Content-Type': 'multipart/form-data',
-
-          accept: 'multipart/form-data',
-        },
-      })
-      .then(function(response) {
-        // handle success
-        console.log(response);
-        return response;
-      })
-
-      .catch(function(error) {
-        // handle error
-        console.log(error);
-        window.alert(error);
-        return error;
-      })
-
-      .finally(function() {
-        // always executed
-      });
   }
 }

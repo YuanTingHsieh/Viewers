@@ -2,12 +2,14 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
-import cornerstoneTools from 'cornerstone-tools';
-import { utils } from '@ohif/core';
+import cornerstoneTools, { getToolState } from 'cornerstone-tools';
+import { utils, UINotificationService } from '@ohif/core';
 
 import './AIAAPanel.styl';
 import AIAAClient from '../AIAAService/AIAAClient.js';
 import AIAATable from './AIAATable';
+import axios from 'axios';
+import cornerstone from 'cornerstone-core';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -26,16 +28,12 @@ const { studyMetadataManager } = utils;
 
 export default class AIAAPanel extends Component {
   static propTypes = {
-    client: PropTypes.object,
-    onComplete: PropTypes.func,
     studies: PropTypes.any,
     viewports: PropTypes.any,
     activeIndex: PropTypes.any,
   };
 
   static defaultProps = {
-    client: undefined,
-    onComplete: undefined,
     studies: undefined,
     viewports: undefined,
     activeIndex: undefined,
@@ -70,22 +68,46 @@ export default class AIAAPanel extends Component {
     const aiaaServerURL = AIAAClient.getCookieURL();
     console.info(aiaaServerURL);
 
+    let segments = [];
+    let activeSegmentIndex = 1;
+    let labelmap3D;
+    if (firstImageId) {
+      const segmentList = AIAAPanel.getSegmentList(firstImageId);
+      segments = segmentList.segments;
+      activeSegmentIndex = segmentList.activeSegmentIndex;
+      labelmap3D = segmentList.labelmap3D;
+    }
+    console.info('segments:' + segments);
+    console.info('activeSegmentIndex:' + activeSegmentIndex);
+    console.info('labelmap3D:' + labelmap3D);
+
     this.state = {
-      aiaaServerURL:
-        aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
+      aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
+      StudyInstanceUID: StudyInstanceUID,
+      SeriesInstanceUID: SeriesInstanceUID,
+      displaySetInstanceUID: displaySetInstanceUID,
       firstImageId: firstImageId,
+      segments: segments,
+      activeSegmentIndex: activeSegmentIndex,
+      labelmap3D: labelmap3D,
       segModels: [],
       annModels: [],
       deepgrowModels: [],
     };
   }
 
-  handleFetch = () => {
+  onBlurSeverURL = evt => {
+    let value = evt.target.value;
+    this.setState({ aiaaServerURL: value });
+  };
+
+  onClickModels = () => {
     let segModels = [];
     let annModels = [];
     let deepgrowModels = [];
 
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+    let notification = UINotificationService.create({});
     aiaaClient
       .model_list()
       .then(response => {
@@ -111,24 +133,19 @@ export default class AIAAPanel extends Component {
           annModels: annModels,
           deepgrowModels: deepgrowModels,
         });
-        this.props.onComplete({
+        notification.show({
           title: 'AIAA logs',
           message: 'Fetched AIAA models complete!',
           type: 'success',
         });
       })
       .catch(error => {
-        this.props.onComplete({
+        notification.show({
           title: 'AIAA logs',
           message: 'Fetched AIAA models failed!' + error,
           type: 'error',
         });
       });
-  };
-
-  onBlurSeverURL = evt => {
-    let value = evt.target.value;
-    this.setState({ aiaaServerURL: value });
   };
 
   onClickSegBtn = () => {
@@ -137,87 +154,216 @@ export default class AIAAPanel extends Component {
   onClickAnnBtn = () => {
   };
 
-  onClickDeepgrowBtn = evt => {
+  onClickDeepgrowBtn = () => {
   };
 
-  onNewSegments = evt => {
-    // Refer XNATSegmentationPanel to create new segment (locally)
+  onClickAddSegment = () => {
+    console.info('Creating New Segment...');
+
+    let { labelmap3D, firstImageId, SeriesInstanceUID } = this.state;
+
+    // AIAA can update some of the following from the output (DICOM-SEG) of deepgrow/dextr3d
+    const newMetadata = {
+      SegmentedPropertyCategoryCodeSequence: {
+        CodeValue: 'T-D000A',
+        CodingSchemeDesignator: 'SRT',
+        CodeMeaning: 'Anatomical Structure',
+      },
+      SegmentNumber: 1,
+      SegmentLabel: 'label-1',
+      SegmentDescription: '',
+      SegmentAlgorithmType: 'AUTOMATIC',
+      SegmentAlgorithmName: 'CNN',
+    };
+
+    console.info('newMetadata.....');
+    console.info(newMetadata);
+
+    if (labelmap3D) {
+      console.info('Label Map is NOT NULL');
+      const { metadata } = labelmap3D;
+
+      var ids = [0];
+      for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
+        ids.push(labelmap3D.metadata.data[i].SegmentNumber);
+      }
+      let maxSegmentId = Math.max.apply(Math, ids);
+      console.info('Current Segments: ' + ids);
+      console.info('Max Segment: ' + maxSegmentId);
+
+      newMetadata.SegmentNumber = maxSegmentId + 1;
+      newMetadata.SegmentLabel = 'label_' + newMetadata.SegmentNumber;
+      metadata.data.push(newMetadata);
+
+      labelmap3D.activeSegmentIndex = metadata.data.length - 1;
+    } else {
+      console.info('Label Map is NULL');
+      const element = AIAAPanel.getElementFromFirstImageId(firstImageId);
+      const segmentationModule = cornerstoneTools.getModule('segmentation');
+      const labelmapData = segmentationModule.getters.labelmap2D(element);
+
+      labelmap3D = labelmapData.labelmap3D;
+      const { metadata } = labelmap3D;
+
+      metadata.seriesInstanceUid = SeriesInstanceUID;
+      metadata.data = [undefined, newMetadata]; // always 1st one is empty
+      labelmap3D.activeSegmentIndex = 1;
+    }
+
+    const segmentList = AIAAPanel.getSegmentList(firstImageId);
+    const segments = segmentList.segments;
+    const activeSegmentIndex = segmentList.activeSegmentIndex;
+
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
   };
 
-  onDeleteSegments = evt => {
-    // Don't know for now.. but might be possible locally
+  onClickSelectSegment = () => {
+    var segItems = [];
+    var checkboxes = document.querySelectorAll('input[name=segitem]:checked');
+    for (var i = 0; i < checkboxes.length; i++) {
+      segItems.push(checkboxes[i].value);
+    }
+    document.getElementById('segDeleteBtn').disabled = segItems.length ? false : true;
   };
 
-  onFetchSegments = evt => {
-    // Reload segments? Also need to think how to sync local created segments back to DICOM series
+  onClickDeleteSegments = () => {
+    console.info('Deleting Segment(s)...');
+
+    var segItems = [];
+    var checkboxes = document.querySelectorAll('input[name=segitem]:checked');
+    for (var i = 0; i < checkboxes.length; i++) {
+      segItems.push(parseInt(checkboxes[i].value));
+    }
+    console.info('Delete segments: ' + segItems);
+    if (!segItems.length) {
+      console.info('no items selected...');
+      return;
+    }
+
+    let { firstImageId, labelmap3D } = this.state;
+    if (!labelmap3D) {
+      console.info('Label Map is NULL');
+      return;
+    }
+
+    const { metadata } = labelmap3D;
+    var newData = [undefined];
+    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
+      const meta = labelmap3D.metadata.data[i];
+      if (!segItems.includes(meta.SegmentNumber)) {
+        console.info('Keeping segment: ' + meta.SegmentNumber);
+        newData.push(meta);
+      } else {
+        console.info('Removing segment: ' + meta.SegmentNumber);
+      }
+    }
+
+    metadata.data = newData;
+    labelmap3D.activeSegmentIndex = metadata.data.length > 0 ? 1 : 0;
+
+    const segmentList = AIAAPanel.getSegmentList(firstImageId);
+    const segments = segmentList.segments;
+    const activeSegmentIndex = segmentList.activeSegmentIndex;
+
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
   };
+
+  onClickReloadSegments = () => {
+    console.info('Reload Segments....');
+    axios.get('http://localhost:8002/spleen_dicom_output.nii.gz')
+      .then((response) => {
+        //console.log(response.data);
+        console.log(response.status);
+        console.log(response.statusText);
+      });
+  };
+
+  static getSegmentList(firstImageId) {
+    console.info('Into getSegmentList');
+    let activeSegmentIndex = 0;
+    let segments = [];
+
+    /* CornerstoneTools */
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const brushStackState = segmentationModule.state.series[firstImageId];
+    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
+
+    if (!labelmap3D) {
+      console.info('LabelMap3D is empty.. so zero segments');
+      return { segments, activeSegmentIndex, labelmap3D };
+    }
+
+    console.info('labelmap3D....');
+    console.info(labelmap3D);
+    if (!labelmap3D.metadata || !labelmap3D.metadata.data) {
+      console.info('Missing Meta Data for Label; so ignore');
+      return { segments, activeSegmentIndex, labelmap3D };
+    }
+
+    activeSegmentIndex = labelmap3D.activeSegmentIndex;
+    console.info('activeSegmentIndex: ' + activeSegmentIndex);
+
+    const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+    console.info('Length of colorLutTable: ' + colorLutTable.length);
+    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
+      const meta = labelmap3D.metadata.data[i];
+      const index = meta.SegmentNumber;
+      const color = colorLutTable[index]; // TODO:: Should not be this way to define the color
+
+      const segmentItem = {
+        index: index,
+        color: color,
+        meta: meta,
+      };
+      segments.push(segmentItem);
+    }
+
+    console.info('segments....');
+    console.info(segments);
+    return { segments, activeSegmentIndex, labelmap3D };
+  }
+
+  static getElementFromFirstImageId(firstImageId) {
+    const enabledElements = cornerstone.getEnabledElements();
+    for (let i = 0; i < enabledElements.length; i++) {
+      const enabledElement = enabledElements[0];
+      const { element } = enabledElement;
+      const stackState = getToolState(element, 'stack');
+      const stackData = stackState.data[0];
+      const firstImageIdOfEnabledElement = stackData.imageIds[0];
+
+      if (firstImageIdOfEnabledElement === firstImageId) {
+        return element;
+      }
+    }
+  }
+
 
   render() {
     console.info('Into render......');
     console.info(this.state);
-    console.info(this.state.aiaaServerURL);
-    console.info(this.state.firstImageId);
 
-    /* CornerstoneTools */
-    const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const brushStackState =
-      segmentationModule.state.series[this.state.firstImageId];
-    const labelmap3D = brushStackState
-      ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex]
-      : null;
+    const {
+      aiaaServerURL,
+      firstImageId,
+      labelmap3D,
+      segments,
+      segModels,
+      annModels,
+      deepgrowModels,
+    } = this.state;
 
-    const segmentList = [];
-    if (labelmap3D) {
-      const uniqueSegmentIndexes = labelmap3D.labelmaps2D
-        .reduce((acc, labelmap2D) => {
-          if (labelmap2D) {
-            const segmentIndexes = labelmap2D.segmentsOnLabelmap;
-
-            for (let i = 0; i < segmentIndexes.length; i++) {
-              if (!acc.includes(segmentIndexes[i]) && segmentIndexes[i] !== 0) {
-                acc.push(segmentIndexes[i]);
-              }
-            }
-          }
-          return acc;
-        }, [])
-        .sort((a, b) => a - b);
-
-      console.info(uniqueSegmentIndexes);
-
-      const colorLutTable =
-        segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
-      const hasLabelmapMeta = labelmap3D.metadata && labelmap3D.metadata.data;
-
-      for (let i = 0; i < uniqueSegmentIndexes.length; i++) {
-        const segmentIndex = uniqueSegmentIndexes[i];
-        const color = colorLutTable[segmentIndex];
-        let segmentLabel = '(unlabeled)';
-        let segmentDescription = '';
-        let segmentNumber = segmentIndex;
-
-        /* Meta */
-        if (hasLabelmapMeta) {
-          const segmentMeta = labelmap3D.metadata.data[segmentIndex];
-          if (segmentMeta) {
-            segmentNumber = segmentMeta.SegmentNumber;
-            segmentLabel = segmentMeta.SegmentLabel;
-            segmentDescription = segmentMeta.SegmentDescription;
-          }
-        }
-
-        const segmentItem = {
-          number: segmentNumber,
-          label: segmentLabel,
-          index: segmentIndex,
-          color: color,
-          desc: segmentDescription
-        };
-        segmentList.push(segmentItem);
-      }
-    }
-
-    console.info(segmentList);
+    console.info(aiaaServerURL);
+    console.info(firstImageId);
+    console.info('Total Segments: ' + segments.length);
 
     return (
       <div className="aiaaPanel">
@@ -229,18 +375,18 @@ export default class AIAAPanel extends Component {
           <tbody>
           <tr>
             <td>
-              <button className="segButton" onClick={this.onNewSegments}>
+              <button className="segButton" onClick={this.onClickAddSegment}>
                 <Icon name="plus" width="12px" height="12px"/>
                 Add
               </button>
               &nbsp;
-              <button className="segButton" onClick={this.onDeleteSegments}>
+              <button className="segButton" onClick={this.onClickDeleteSegments} id="segDeleteBtn">
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
               </button>
             </td>
             <td align="right">
-              <button className="segButton" onClick={this.onFetchSegments}>
+              <button className="segButton" onClick={this.onClickReloadSegments}>
                 <Icon name="reset" width="12px" height="12px"/>
                 Reload
               </button>
@@ -260,10 +406,10 @@ export default class AIAAPanel extends Component {
             </tr>
             </thead>
             <tbody>
-            {segmentList.map(seg => (
-              <tr key={seg.number}>
+            {segments.map(seg => (
+              <tr key={seg.index}>
                 <td>
-                  <input type="checkbox"/>
+                  <input type="checkbox" name="segitem" value={seg.index} onClick={this.onClickSelectSegment}/>
                 </td>
                 <td>
                   <ColoredCircle color={seg.color}/>
@@ -273,9 +419,14 @@ export default class AIAAPanel extends Component {
                   contentEditable="true"
                   suppressContentEditableWarning="true"
                 >
-                  {seg.label}
+                  {seg.meta.SegmentLabel}
                 </td>
-                <td>{seg.desc}</td>
+                <td
+                  contentEditable="true"
+                  suppressContentEditableWarning="true"
+                >
+                  {seg.meta.SegmentDescription}
+                </td>
               </tr>
             ))}
             </tbody>
@@ -294,13 +445,13 @@ export default class AIAAPanel extends Component {
                 className="aiaaInput"
                 name="aiaaServerURL"
                 type="text"
-                defaultValue={this.state.aiaaServerURL}
+                defaultValue={aiaaServerURL}
                 onBlur={this.onBlurSeverURL}
               />
             </td>
             <td width="2%">&nbsp;</td>
             <td width="18%">
-              <button className="aiaaButton" onClick={this.handleFetch}>
+              <button className="aiaaButton" onClick={this.onClickModels}>
                 <Icon name="reset" width="16px" height="16px"/>
               </button>
             </td>
@@ -308,7 +459,7 @@ export default class AIAAPanel extends Component {
           <tr>
             <td colSpan="3">
               <a
-                href={this.state.aiaaServerURL + 'models'}
+                href={aiaaServerURL + 'models'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -318,7 +469,7 @@ export default class AIAAPanel extends Component {
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
               <a
-                href={this.state.aiaaServerURL + 'logs?lines=100'}
+                href={aiaaServerURL + 'logs?lines=100'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -345,7 +496,7 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 title="Segmentation Models:"
-                models={this.state.segModels}
+                models={segModels}
                 api_call={this.onClickSegBtn}
                 usage={
                   <p>
@@ -371,7 +522,7 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 title="Annotation (DExtr3D) Models:"
-                models={this.state.annModels}
+                models={annModels}
                 api_call={this.onClickAnnBtn}
                 usage={
                   <div>
@@ -404,7 +555,7 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 title="DeepGrow Models:"
-                models={this.state.deepgrowModels}
+                models={deepgrowModels}
                 api_call={this.onClickDeepgrowBtn}
                 usage={
                   <div>
