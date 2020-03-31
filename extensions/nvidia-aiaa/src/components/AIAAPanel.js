@@ -3,13 +3,14 @@ import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
 import cornerstoneTools, { getToolState } from 'cornerstone-tools';
-import { utils, UINotificationService } from '@ohif/core';
+import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
-import AIAAClient from '../AIAAService/AIAAClient.js';
+import AIAAClient from '../AIAAService/AIAAClient';
 import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
+import loadDicomSeg from '../loadDicomSeg';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -94,6 +95,66 @@ export default class AIAAPanel extends Component {
       annModels: [],
       deepgrowModels: [],
     };
+  }
+
+  static getSegmentList(firstImageId) {
+    console.info('Into getSegmentList');
+    let activeSegmentIndex = 0;
+    let segments = [];
+
+    /* CornerstoneTools */
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const brushStackState = segmentationModule.state.series[firstImageId];
+    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
+
+    if (!labelmap3D) {
+      console.info('LabelMap3D is empty.. so zero segments');
+      return { segments, activeSegmentIndex, labelmap3D };
+    }
+
+    console.info('labelmap3D....');
+    console.info(labelmap3D);
+    if (!labelmap3D.metadata || !labelmap3D.metadata.data) {
+      console.info('Missing Meta Data for Label; so ignore');
+      return { segments, activeSegmentIndex, labelmap3D };
+    }
+
+    activeSegmentIndex = labelmap3D.activeSegmentIndex;
+    console.info('activeSegmentIndex: ' + activeSegmentIndex);
+
+    const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+    console.info('Length of colorLutTable: ' + colorLutTable.length);
+    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
+      const meta = labelmap3D.metadata.data[i];
+      const index = meta.SegmentNumber;
+      const color = colorLutTable[index]; // TODO:: Should not be this way to define the color
+
+      const segmentItem = {
+        index: index,
+        color: color,
+        meta: meta,
+      };
+      segments.push(segmentItem);
+    }
+
+    console.info('segments....');
+    console.info(segments);
+    return { segments, activeSegmentIndex, labelmap3D };
+  }
+
+  static getElementFromFirstImageId(firstImageId) {
+    const enabledElements = cornerstone.getEnabledElements();
+    for (let i = 0; i < enabledElements.length; i++) {
+      const enabledElement = enabledElements[0];
+      const { element } = enabledElement;
+      const stackState = getToolState(element, 'stack');
+      const stackData = stackState.data[0];
+      const firstImageIdOfEnabledElement = stackData.imageIds[0];
+
+      if (firstImageIdOfEnabledElement === firstImageId) {
+        return element;
+      }
+    }
   }
 
   onBlurSeverURL = evt => {
@@ -278,74 +339,33 @@ export default class AIAAPanel extends Component {
 
   onClickReloadSegments = () => {
     console.info('Reload Segments....');
-    axios.get('http://localhost:8002/spleen_dicom_output.nii.gz')
+    var url = 'http://localhost:8002/DICOM/DDE0450D/093970D7/1E223919';
+    //var url = 'http://localhost:8002/spleen_dicom_output.nii.gz';
+    axios.get(url, { responseType: 'arraybuffer' })
       .then((response) => {
-        //console.log(response.data);
+        console.log(response.data);
         console.log(response.status);
         console.log(response.statusText);
+
+        const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+        const { studies } = this.props;
+
+        loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
+
+        const segmentList = AIAAPanel.getSegmentList(firstImageId);
+        const segments = segmentList.segments;
+        const activeSegmentIndex = segmentList.activeSegmentIndex;
+        const labelmap3D = segmentList.labelmap3D;
+
+        this.setState({
+          segments,
+          activeSegmentIndex,
+          labelmap3D
+        });
+
+        // TODO:: How to refresh ViewPort here.. Currently, you have to sroll to differnt slice to see the mask..
       });
   };
-
-  static getSegmentList(firstImageId) {
-    console.info('Into getSegmentList');
-    let activeSegmentIndex = 0;
-    let segments = [];
-
-    /* CornerstoneTools */
-    const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const brushStackState = segmentationModule.state.series[firstImageId];
-    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
-
-    if (!labelmap3D) {
-      console.info('LabelMap3D is empty.. so zero segments');
-      return { segments, activeSegmentIndex, labelmap3D };
-    }
-
-    console.info('labelmap3D....');
-    console.info(labelmap3D);
-    if (!labelmap3D.metadata || !labelmap3D.metadata.data) {
-      console.info('Missing Meta Data for Label; so ignore');
-      return { segments, activeSegmentIndex, labelmap3D };
-    }
-
-    activeSegmentIndex = labelmap3D.activeSegmentIndex;
-    console.info('activeSegmentIndex: ' + activeSegmentIndex);
-
-    const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
-    console.info('Length of colorLutTable: ' + colorLutTable.length);
-    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
-      const meta = labelmap3D.metadata.data[i];
-      const index = meta.SegmentNumber;
-      const color = colorLutTable[index]; // TODO:: Should not be this way to define the color
-
-      const segmentItem = {
-        index: index,
-        color: color,
-        meta: meta,
-      };
-      segments.push(segmentItem);
-    }
-
-    console.info('segments....');
-    console.info(segments);
-    return { segments, activeSegmentIndex, labelmap3D };
-  }
-
-  static getElementFromFirstImageId(firstImageId) {
-    const enabledElements = cornerstone.getEnabledElements();
-    for (let i = 0; i < enabledElements.length; i++) {
-      const enabledElement = enabledElements[0];
-      const { element } = enabledElement;
-      const stackState = getToolState(element, 'stack');
-      const stackData = stackState.data[0];
-      const firstImageIdOfEnabledElement = stackData.imageIds[0];
-
-      if (firstImageIdOfEnabledElement === firstImageId) {
-        return element;
-      }
-    }
-  }
-
 
   render() {
     console.info('Into render......');

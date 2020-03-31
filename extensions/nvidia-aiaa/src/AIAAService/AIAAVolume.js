@@ -115,7 +115,7 @@ export default class AIAAVolume {
       resolution,
       this.metadata.imagePositionPatient,
       this.metadata.slope,
-      this.metadata.intercept
+      this.metadata.intercept,
     );
     if (debug) {
       this.downloadNiiArrLocally(niiArray);
@@ -146,7 +146,7 @@ export default class AIAAVolume {
     resolution,
     imagePositionPatient,
     slope = 1,
-    intercept = 0
+    intercept = 0,
   ) => {
     let buffer = new ArrayBuffer(352); //header of the nifty file 352 bytes for any nifti
     for (let i = 0; i < buffer.byteLength; ++i) {

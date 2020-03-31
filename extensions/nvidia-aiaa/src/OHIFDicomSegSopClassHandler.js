@@ -18,7 +18,7 @@ const OHIFDicomSegSopClassHandler = {
     series,
     study,
     dicomWebClient,
-    authorizationHeaders
+    authorizationHeaders,
   ) {
     const instance = series.getFirstInstance();
     const metadata = instance.getData().metadata;

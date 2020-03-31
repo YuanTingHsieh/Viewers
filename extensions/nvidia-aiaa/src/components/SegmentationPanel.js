@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import cornerstoneTools from 'cornerstone-tools';
 import cornerstone from 'cornerstone-core';
 import moment from 'moment';
-import { utils, log } from '@ohif/core';
-import { ScrollableArea, TableList, Icon } from '@ohif/ui';
+import { log, utils } from '@ohif/core';
+import { ScrollableArea, TableList } from '@ohif/ui';
 
-import {
-  SegmentationItem,
-  SegmentItem,
-  SegmentationSelect,
-} from './index';
+import { SegmentationItem, SegmentationSelect, SegmentItem } from './index';
 
 import './SegmentationPanel.css';
 

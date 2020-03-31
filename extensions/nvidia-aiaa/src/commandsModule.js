@@ -28,8 +28,8 @@ const commandsModule = ({ servicesManager }) => {
             var niiBufferArr = response.data;
             if (niiBufferArr == undefined) {
               AIAAshow(
-                "Server didn't return data. Check AIAA server logs",
-                'error'
+                'Server didn\'t return data. Check AIAA server logs',
+                'error',
               );
               return;
             }
