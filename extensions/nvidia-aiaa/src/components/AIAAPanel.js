@@ -215,6 +215,7 @@ export default class AIAAPanel extends Component {
     console.info('On Click Segmentation: ' + model_name);
 
     let notification = UINotificationService.create({});
+    model_name = 'segmentation_ct_spleen';
     if (!model_name) {
       notification.show({
         title: 'AIAA logs',
@@ -228,9 +229,10 @@ export default class AIAAPanel extends Component {
     const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
     let aiaaVolume = new AIAAVolume();
-    aiaaVolume.createDataVol(viewports).then(volume => {
-      let niiBuffer = aiaaVolume.buffer2NiiArr(volume);
-      var image_in = new Blob([niiBuffer], {type: "application/octet-stream"});
+    aiaaVolume.createDicomData(studies, StudyInstanceUID, SeriesInstanceUID).then(volume => {
+      //let niiBuffer = aiaaVolume.buffer2NiiArr(volume);
+      //var image_in = new Blob([niiBuffer], { type: 'application/octet-stream' });
+      var image_in = new Blob([volume], { type: 'application/octet-stream' });
 
       notification.show({
         title: 'AIAA logs',
@@ -246,9 +248,7 @@ export default class AIAAPanel extends Component {
           console.log(response.status);
           console.log(response.statusText);
 
-          const maskImporter = new MaskImporter(SeriesInstanceUID);
-          maskImporter.importNIFTI(response.data);
-          //loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
+          loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
 
           const segmentList = AIAAPanel.getSegmentList(firstImageId);
           const segments = segmentList.segments;
@@ -258,7 +258,7 @@ export default class AIAAPanel extends Component {
           this.setState({
             segments,
             activeSegmentIndex,
-            labelmap3D
+            labelmap3D,
           });
         })
         .then(() => {
@@ -430,7 +430,7 @@ export default class AIAAPanel extends Component {
         this.setState({
           segments,
           activeSegmentIndex,
-          labelmap3D
+          labelmap3D,
         });
 
         // TODO:: How to refresh ViewPort here.. Currently, you have to sroll to differnt slice to see the mask..

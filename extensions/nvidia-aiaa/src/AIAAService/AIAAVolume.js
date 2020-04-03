@@ -1,9 +1,10 @@
 import cornerstone from 'cornerstone-core';
 import cornerstoneTools from 'cornerstone-tools';
 import ndarray from 'ndarray';
+import OHIF from '@ohif/core';
 
 var arrayBufferConcat = require('arraybuffer-concat');
-import * as dcmjs from 'dcmjs';
+const { DicomLoaderService } = OHIF.utils;
 
 export default class AIAAVolume {
   constructor() {
@@ -25,6 +26,34 @@ export default class AIAAVolume {
     // TODO: cache volume based on active view port IDs
     this.volume = await this.createDataVol(viewports);
     return this.volume;
+  };
+
+  createDicomData = async (studies,
+                           StudyInstanceUID,
+                           SeriesInstanceUID) => {
+    console.info('About to load the dicom here...');
+    const study = studies.find(
+      study => study.StudyInstanceUID === StudyInstanceUID,
+    );
+
+    const displaySets = study.displaySets.filter(displaySet => {
+      return displaySet.SeriesInstanceUID === SeriesInstanceUID;
+    });
+
+    if (displaySets.length > 1) {
+      console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
+    }
+
+    console.info(displaySets);
+
+    const referencedDisplaySet = displaySets[0];
+    const dicomArrayBuffer = await DicomLoaderService.findDicomDataPromise(
+      referencedDisplaySet,
+      studies,
+    );
+
+    console.info(dicomArrayBuffer);
+    return dicomArrayBuffer;
   };
 
   createDataVol = async viewports => {

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export default class AIAAUtils {
   static api_get(url) {
-    console.log('AIAAUtils - getting' + url);
+    console.log('AIAAUtils - GET:: ' + url);
     return axios
       .get(url)
       .then(function(response) {
@@ -21,9 +21,9 @@ export default class AIAAUtils {
   }
 
   static api_post_file(url, params, file) {
-    console.log('AIAAUtils - posting' + url);
+    console.log('AIAAUtils - POST:: ' + url);
     let formData = new FormData();
-    let fileName = 'data.nii'; // must have extension for AIAA to understand it
+    let fileName = 'data.dcm'; // must have extension for AIAA to understand it
 
     formData.append('datapoint', file, fileName);
     formData.append('params', JSON.stringify(params));

@@ -32,28 +32,10 @@ function get_cookie(cookie_name) {
 export default class AIAAClient {
   constructor(server_url) {
     this.server_url = new URL(server_url);
-    // TODO:: implement dextr3d, deepgrow, mask2polygon, fixpolygon methods
-    this.api_version = 'v1';
-    this.dextr3d_api = 'dextr3d';
-    this.deepgrow_api = 'deepgrow';
-    this.mask2polygon_api = 'mask2polygon';
-    this.fixpolygon_api = 'fixpolygon';
-
-    this._checkServer();
   }
 
   static getCookieURL() {
     return get_cookie('nvidiaAIAAServerUrl');
-  }
-
-  _checkServer() {
-    this.model_list()
-      .then(response => {
-        console.log(response);
-      })
-      .catch(error => {
-        console.log(error);
-      });
   }
 
   setServerURL(url, use_cookie = true) {
@@ -74,30 +56,6 @@ export default class AIAAClient {
     let log_url = new URL('logs', this.server_url);
     log_url.searchParams.append('lines', lines);
     return log_url.toString();
-  }
-
-  // TODO:: rewrite/remove this
-  async call_server(
-    api,
-    query = undefined,
-    params = undefined,
-    files = undefined,
-  ) {
-    let endpoint = this.server_url + '/' + this.api_version + '/' + api;
-
-    if (query !== undefined) {
-      endpoint = endpoint + '?' + query;
-    }
-
-    console.log('Connecting to: ' + endpoint);
-
-    if (params === undefined) {
-      return await AIAAUtils.api_get(endpoint);
-    } else {
-      if (files !== undefined) {
-        return await AIAAUtils.api_post_file(endpoint, params, files);
-      }
-    }
   }
 
   /**
@@ -133,6 +91,7 @@ export default class AIAAClient {
     if (session_id !== undefined)
       seg_url.searchParams.append('session_id', session_id);
 
+    const params = {};
     let response = await AIAAUtils.api_post_file(
       seg_url.toString(),
       params,
@@ -144,13 +103,6 @@ export default class AIAAClient {
 
   // TODO:: rewrite this
   async dextr3d(model_name, params, file) {
-    let response = await this.call_server(
-      this.dextr3d_api,
-      model_name,
-      params,
-      file,
-    );
-
-    return response;
+    return undefined;
   }
 }
