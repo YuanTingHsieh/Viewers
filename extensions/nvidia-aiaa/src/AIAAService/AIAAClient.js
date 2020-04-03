@@ -133,7 +133,6 @@ export default class AIAAClient {
     if (session_id !== undefined)
       seg_url.searchParams.append('session_id', session_id);
 
-    let params = {};
     let response = await AIAAUtils.api_post_file(
       seg_url.toString(),
       params,

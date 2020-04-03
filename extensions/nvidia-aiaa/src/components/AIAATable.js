@@ -50,6 +50,7 @@ export default class AIAATable extends Component {
                 onChange={this.onChangeModel}
                 value={this.state.currModel}
               >
+                <option key="default" value="" aiaalabel=""></option>
                 {this.props.models.map(model => (
                   <option
                     key={model.name}

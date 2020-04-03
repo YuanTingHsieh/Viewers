@@ -11,7 +11,7 @@ export default {
   getPanelModule({ servicesManager, commandsManager }) {
     return panelModule({ servicesManager, commandsManager });
   },
-  //getSopClassHandlerModule({ servicesManager }) {
-  //  return sopClassHandlerModule;
-  //},
+  getSopClassHandlerModule({ servicesManager }) {
+    return sopClassHandlerModule;
+  },
 };

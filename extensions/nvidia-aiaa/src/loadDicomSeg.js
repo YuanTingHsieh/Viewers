@@ -14,12 +14,12 @@ export default async function loadDicomSeg(
     SeriesInstanceUID,
   );
 
-  console.info('Fetching All Images for SEG');
-  console.info(imageIds);
+  console.info('Fetching All Images for SEG; Length = ' + imageIds.length);
+  //console.info(imageIds);
 
   const results = _parseSeg(segArrayBuffer, imageIds);
   console.info(results);
-  
+
   if (!results) {
     throw new Error('Fractional segmentations are not yet supported');
   }
@@ -27,10 +27,23 @@ export default async function loadDicomSeg(
   const { labelmapBuffer, segMetadata, segmentsOnFrame } = results;
   const { setters } = cornerstoneTools.getModule('segmentation');
 
+  // Delete old labelmap
+  const firstImageId = imageIds[0];
+  console.info(firstImageId);
+
+  const segmentationModule = cornerstoneTools.getModule('segmentation');
+  if (segmentationModule.state.series[firstImageId]) {
+    console.info('Delete old labelmap');
+    delete segmentationModule.state.series[firstImageId];
+  }
+
   // TODO: Could define a color LUT based on colors in the SEG.
-  const labelmapIndex = _getNextLabelmapIndex(imageIds[0]);
+  const labelmapIndex = _getNextLabelmapIndex(firstImageId);
+  console.info('labelmapIndex = ' + labelmapIndex);
+  console.info(segMetadata);
+
   setters.labelmap3DByFirstImageId(
-    imageIds[0],
+    firstImageId,
     labelmapBuffer,
     labelmapIndex,
     segMetadata,

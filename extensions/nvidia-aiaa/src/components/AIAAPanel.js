@@ -7,10 +7,12 @@ import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
 import AIAAClient from '../AIAAService/AIAAClient';
+import AIAAVolume from '../AIAAService/AIAAVolume';
 import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
 import loadDicomSeg from '../loadDicomSeg';
+import MaskImporter from '../utils/MaskImporter';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -209,7 +211,72 @@ export default class AIAAPanel extends Component {
       });
   };
 
-  onClickSegBtn = () => {
+  onClickSegBtn = (model_name) => {
+    console.info('On Click Segmentation: ' + model_name);
+
+    let notification = UINotificationService.create({});
+    if (!model_name) {
+      notification.show({
+        title: 'AIAA logs',
+        message: 'Model is NOT selected',
+        type: 'info',
+      });
+      return;
+    }
+
+    const { studies, viewports } = this.props;
+    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+
+    let aiaaVolume = new AIAAVolume();
+    aiaaVolume.createDataVol(viewports).then(volume => {
+      let niiBuffer = aiaaVolume.buffer2NiiArr(volume);
+      var image_in = new Blob([niiBuffer], {type: "application/octet-stream"});
+
+      notification.show({
+        title: 'AIAA logs',
+        message: 'AIAA Data preparation complete!',
+        type: 'success',
+      });
+
+      let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+      aiaaClient
+        .segmentation(model_name, image_in)
+        .then(response => {
+          console.log(response.data);
+          console.log(response.status);
+          console.log(response.statusText);
+
+          const maskImporter = new MaskImporter(SeriesInstanceUID);
+          maskImporter.importNIFTI(response.data);
+          //loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
+
+          const segmentList = AIAAPanel.getSegmentList(firstImageId);
+          const segments = segmentList.segments;
+          const activeSegmentIndex = segmentList.activeSegmentIndex;
+          const labelmap3D = segmentList.labelmap3D;
+
+          this.setState({
+            segments,
+            activeSegmentIndex,
+            labelmap3D
+          });
+        })
+        .then(() => {
+          notification.show({
+            title: 'AIAA logs',
+            message: 'AIAA Auto-Segmentation complete!',
+            type: 'success',
+          });
+        })
+        .catch(error => {
+          console.error(error);
+          notification.show({
+            title: 'AIAA logs',
+            message: 'AIAA Auto-Segmentation failed!' + error,
+            type: 'error',
+          });
+        });
+    });
   };
 
   onClickAnnBtn = () => {
@@ -339,8 +406,9 @@ export default class AIAAPanel extends Component {
 
   onClickReloadSegments = () => {
     console.info('Reload Segments....');
-    var url = 'http://localhost:8002/DICOM/DDE0450D/093970D7/1E223919';
-    //var url = 'http://localhost:8002/spleen_dicom_output.nii.gz';
+    //var url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
+    var url = 'http://10.110.46.111:8002/liver.dcm';
+    var url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
     axios.get(url, { responseType: 'arraybuffer' })
       .then((response) => {
         console.log(response.data);
@@ -350,7 +418,9 @@ export default class AIAAPanel extends Component {
         const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
         const { studies } = this.props;
 
-        loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
+        //loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
+        const maskImporter = new MaskImporter(StudyInstanceUID, SeriesInstanceUID, studies);
+        maskImporter.importNIFTI(response.data);
 
         const segmentList = AIAAPanel.getSegmentList(firstImageId);
         const segments = segmentList.segments;

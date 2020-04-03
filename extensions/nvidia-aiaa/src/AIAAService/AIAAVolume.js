@@ -3,6 +3,7 @@ import cornerstoneTools from 'cornerstone-tools';
 import ndarray from 'ndarray';
 
 var arrayBufferConcat = require('arraybuffer-concat');
+import * as dcmjs from 'dcmjs';
 
 export default class AIAAVolume {
   constructor() {
@@ -29,8 +30,6 @@ export default class AIAAVolume {
   createDataVol = async viewports => {
     console.log('createDataVol this takes some time .......');
     console.log(viewports);
-    const { viewportSpecificData, activeViewportIndex } = viewports;
-    console.log(viewportSpecificData[activeViewportIndex]);
 
     // TODO: How to get correct stackState here
     var elements = cornerstone.getEnabledElements();

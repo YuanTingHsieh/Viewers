@@ -1,5 +1,6 @@
 import cornerstoneTools from 'cornerstone-tools';
 import Nifti from 'nifti-reader-js';
+import { OHIF } from '@ohif/core';
 
 const modules = cornerstoneTools.store.modules;
 const tolerance = 0.1;
@@ -35,6 +36,8 @@ export default class NIFTIReader {
   constructor(seriesInstanceUid) {
     this._seriesInstanceUid = seriesInstanceUid;
     this._metadataProvider = OHIF.viewer.metadataProvider;
+
+    console.info(OHIF.viewer.metadataProvider);
   }
 
   /**
@@ -314,11 +317,11 @@ export default class NIFTIReader {
     // TODO -> This isn't exhaustive yet, just the most common eventualities between NIFTI <--> DICOM.
     if (
       Math.abs(imagePositionPatient.x) -
-        Math.abs(firstVoxelInDicomPCSFrame[0]) <
-        tol &&
+      Math.abs(firstVoxelInDicomPCSFrame[0]) <
+      tol &&
       Math.abs(imagePositionPatient.y) -
-        Math.abs(firstVoxelInDicomPCSFrame[1]) <
-        tol
+      Math.abs(firstVoxelInDicomPCSFrame[1]) <
+      tol
     ) {
       // Close, are the images flipped?
       if (
