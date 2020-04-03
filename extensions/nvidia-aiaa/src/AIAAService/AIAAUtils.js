@@ -23,9 +23,14 @@ export default class AIAAUtils {
   static api_post_file(url, params, file) {
     console.log('AIAAUtils - POST:: ' + url);
     let formData = new FormData();
-    let fileName = 'data.dcm'; // must have extension for AIAA to understand it
 
-    formData.append('datapoint', file, fileName);
+    if (Array.isArray(file)) {
+      for (let i = 0; i < file.length; i++) {
+        formData.append('image' + i, file[i].data, file[i].name);
+      }
+    } else {
+      formData.append('image', file.data, file.name);
+    }
     formData.append('params', JSON.stringify(params));
 
     return axios

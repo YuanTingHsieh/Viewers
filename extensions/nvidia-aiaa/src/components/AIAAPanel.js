@@ -215,7 +215,6 @@ export default class AIAAPanel extends Component {
     console.info('On Click Segmentation: ' + model_name);
 
     let notification = UINotificationService.create({});
-    model_name = 'segmentation_ct_spleen';
     if (!model_name) {
       notification.show({
         title: 'AIAA logs',
@@ -229,11 +228,7 @@ export default class AIAAPanel extends Component {
     const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
     let aiaaVolume = new AIAAVolume();
-    aiaaVolume.createDicomData(studies, StudyInstanceUID, SeriesInstanceUID).then(volume => {
-      //let niiBuffer = aiaaVolume.buffer2NiiArr(volume);
-      //var image_in = new Blob([niiBuffer], { type: 'application/octet-stream' });
-      var image_in = new Blob([volume], { type: 'application/octet-stream' });
-
+    aiaaVolume.createDicomData(viewports, studies, StudyInstanceUID, SeriesInstanceUID).then(volumes => {
       notification.show({
         title: 'AIAA logs',
         message: 'AIAA Data preparation complete!',
@@ -242,7 +237,7 @@ export default class AIAAPanel extends Component {
 
       let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
       aiaaClient
-        .segmentation(model_name, image_in)
+        .segmentation(model_name, volumes)
         .then(response => {
           console.log(response.data);
           console.log(response.status);

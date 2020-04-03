@@ -28,13 +28,18 @@ export default class AIAAVolume {
     return this.volume;
   };
 
-  createDicomData = async (studies,
+  createDicomData = async (viewports,
+                           studies,
                            StudyInstanceUID,
                            SeriesInstanceUID) => {
     console.info('About to load the dicom here...');
+    console.log('createDataVol this takes some time .......');
+
+    console.info(studies);
     const study = studies.find(
       study => study.StudyInstanceUID === StudyInstanceUID,
     );
+    console.info(study.displaySets);
 
     const displaySets = study.displaySets.filter(displaySet => {
       return displaySet.SeriesInstanceUID === SeriesInstanceUID;
@@ -44,16 +49,50 @@ export default class AIAAVolume {
       console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
     }
 
-    console.info(displaySets);
+    const d = displaySets[0];
+    console.info('ImageSet..............');
+    console.info(d);
 
-    const referencedDisplaySet = displaySets[0];
-    const dicomArrayBuffer = await DicomLoaderService.findDicomDataPromise(
-      referencedDisplaySet,
-      studies,
-    );
+    // TODO:: Remove this hack; Instead of fetching it again, get it from imageCache
+    var n = {
+      displaySetInstanceUID: d.displaySetInstanceUID,
+      SeriesDate: d.SeriesDate,
+      SeriesTime: d.SeriesTime,
+      SeriesInstanceUID: d.SeriesInstanceUID,
+      SeriesNumber: d.SeriesNumber,
+      SeriesDescription: d.SeriesDescription,
+      numImageFrames: d.numImageFrames,
+      frameRate: d.frameRate,
+      Modality: d.Modality,
+      isMultiFrame: d.isMultiFrame,
+      InstanceNumber: d.InstanceNumber,
+      isReconstructable: d.isReconstructable,
+      StudyInstanceUID: d.StudyInstanceUID,
+      sopClassUIDs: d.sopClassUIDs,
+      plugin: 'cornerstone',
+      images: [],
+    };
 
-    console.info(dicomArrayBuffer);
-    return dicomArrayBuffer;
+    // HACK:: DicomLoaderService.findDicomDataPromise only reads first image from ImageSet
+    let imagesBuffers = [];
+    for (var i = 0; i < d.images.length; i++) {
+      n.images = [];
+      n.images.push(d.images[i]);
+      for (var j = 0; j < d.images.length; j++) {
+        if (i == j) {
+          continue;
+        }
+        n.images.push(d.images[j]);
+      }
+
+      console.info('Getting Dicom for: ' + i);
+      const volume = await DicomLoaderService.findDicomDataPromise(n, studies);
+      var image_in = new Blob([volume], { type: 'application/octet-stream' });
+      imagesBuffers.push({ data: image_in, name: 'image_' + i + '.dcm' });
+    }
+
+    console.info(imagesBuffers);
+    return imagesBuffers;
   };
 
   createDataVol = async viewports => {
