@@ -28,6 +28,10 @@ export default class AIAAVolume {
     return this.volume;
   };
 
+  createDicomDataDummy = async viewports => {
+    return null;
+  };
+
   createDicomData = async (viewports,
                            studies,
                            StudyInstanceUID,

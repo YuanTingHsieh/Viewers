@@ -13,6 +13,7 @@ coverage/
 # YALC (for Erik)
 .yalc
 yalc.lock
+yarn.lock
 
 # Logging, System files, misc.
 .idea/

@@ -12,7 +12,6 @@ import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
 import loadDicomSeg from '../loadDicomSeg';
-import MaskImporter from '../utils/MaskImporter';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -96,6 +95,7 @@ export default class AIAAPanel extends Component {
       segModels: [],
       annModels: [],
       deepgrowModels: [],
+      sessionId: 'd24a46a2-7836-11ea-85db-0242ac110004'
     };
   }
 
@@ -197,14 +197,17 @@ export default class AIAAPanel extends Component {
           deepgrowModels: deepgrowModels,
         });
         notification.show({
-          title: 'AIAA logs',
+          title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models complete!',
           type: 'success',
         });
+
+        // TODO:: Check + Create AIAA Session if required
+        // this.setState({sessionId: sessionId})
       })
       .catch(error => {
         notification.show({
-          title: 'AIAA logs',
+          title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models failed!' + error,
           type: 'error',
         });
@@ -217,7 +220,7 @@ export default class AIAAPanel extends Component {
     let notification = UINotificationService.create({});
     if (!model_name) {
       notification.show({
-        title: 'AIAA logs',
+        title: 'NVIDIA AIAA',
         message: 'Model is NOT selected',
         type: 'info',
       });
@@ -228,16 +231,16 @@ export default class AIAAPanel extends Component {
     const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
     let aiaaVolume = new AIAAVolume();
-    aiaaVolume.createDicomData(viewports, studies, StudyInstanceUID, SeriesInstanceUID).then(volumes => {
+    aiaaVolume.createDicomDataDummy(viewports, studies, StudyInstanceUID, SeriesInstanceUID).then(volumes => {
       notification.show({
-        title: 'AIAA logs',
+        title: 'NVIDIA AIAA',
         message: 'AIAA Data preparation complete!',
         type: 'success',
       });
 
       let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
       aiaaClient
-        .segmentation(model_name, volumes)
+        .segmentation(model_name, volumes, this.state.sessionId)
         .then(response => {
           console.log(response.data);
           console.log(response.status);
@@ -258,7 +261,7 @@ export default class AIAAPanel extends Component {
         })
         .then(() => {
           notification.show({
-            title: 'AIAA logs',
+            title: 'NVIDIA AIAA',
             message: 'AIAA Auto-Segmentation complete!',
             type: 'success',
           });
@@ -266,7 +269,7 @@ export default class AIAAPanel extends Component {
         .catch(error => {
           console.error(error);
           notification.show({
-            title: 'AIAA logs',
+            title: 'NVIDIA AIAA',
             message: 'AIAA Auto-Segmentation failed!' + error,
             type: 'error',
           });
@@ -403,7 +406,7 @@ export default class AIAAPanel extends Component {
     console.info('Reload Segments....');
     //var url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
     var url = 'http://10.110.46.111:8002/liver.dcm';
-    var url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
+    //var url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
     axios.get(url, { responseType: 'arraybuffer' })
       .then((response) => {
         console.log(response.data);
@@ -413,9 +416,7 @@ export default class AIAAPanel extends Component {
         const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
         const { studies } = this.props;
 
-        //loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
-        const maskImporter = new MaskImporter(StudyInstanceUID, SeriesInstanceUID, studies);
-        maskImporter.importNIFTI(response.data);
+        loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
 
         const segmentList = AIAAPanel.getSegmentList(firstImageId);
         const segments = segmentList.segments;
@@ -460,18 +461,18 @@ export default class AIAAPanel extends Component {
           <tbody>
           <tr>
             <td>
-              <button className="segButton" onClick={this.onClickAddSegment}>
+              <button className="segButton" onClick={this.onClickAddSegment} title="Add Segment">
                 <Icon name="plus" width="12px" height="12px"/>
                 Add
               </button>
               &nbsp;
-              <button className="segButton" onClick={this.onClickDeleteSegments} id="segDeleteBtn">
+              <button className="segButton" onClick={this.onClickDeleteSegments} id="segDeleteBtn" title="Delete Selected Segment">
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
               </button>
             </td>
             <td align="right">
-              <button className="segButton" onClick={this.onClickReloadSegments}>
+              <button className="segButton" onClick={this.onClickReloadSegments} title={"Reload Segments"}>
                 <Icon name="reset" width="12px" height="12px"/>
                 Reload
               </button>
@@ -535,7 +536,7 @@ export default class AIAAPanel extends Component {
               />
             </td>
             <td width="2%">&nbsp;</td>
-            <td width="18%">
+            <td width="18%" title="Connect to AIAA">
               <button className="aiaaButton" onClick={this.onClickModels}>
                 <Icon name="reset" width="16px" height="16px"/>
               </button>

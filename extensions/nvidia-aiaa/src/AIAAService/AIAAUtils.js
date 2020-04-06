@@ -24,12 +24,14 @@ export default class AIAAUtils {
     console.log('AIAAUtils - POST:: ' + url);
     let formData = new FormData();
 
-    if (Array.isArray(file)) {
-      for (let i = 0; i < file.length; i++) {
-        formData.append('image' + i, file[i].data, file[i].name);
+    if (file) {
+      if (Array.isArray(file)) {
+        for (let i = 0; i < file.length; i++) {
+          formData.append('image' + i, file[i].data, file[i].name);
+        }
+      } else {
+        formData.append('image', file.data, file.name);
       }
-    } else {
-      formData.append('image', file.data, file.name);
     }
     formData.append('params', JSON.stringify(params));
 
@@ -39,7 +41,6 @@ export default class AIAAUtils {
 
         headers: {
           'Content-Type': 'multipart/form-data',
-
           accept: 'multipart/form-data',
         },
       })

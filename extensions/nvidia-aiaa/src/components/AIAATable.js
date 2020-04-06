@@ -62,7 +62,7 @@ export default class AIAATable extends Component {
             </td>
             <td width="2%">&nbsp;</td>
             <td width="18%">
-              <button className="aiaaButton" onClick={this.onClickBtn}>
+              <button className="aiaaButton" onClick={this.onClickBtn} title="Run Action">
                 <Icon name="brain" width="16px" height="16px"/>
               </button>
             </td>
