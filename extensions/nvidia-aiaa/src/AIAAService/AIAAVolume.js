@@ -1,7 +1,7 @@
 import cornerstone from 'cornerstone-core';
 import cornerstoneTools from 'cornerstone-tools';
-import ndarray from 'ndarray';
 import OHIF from '@ohif/core';
+import ndarray from 'ndarray';
 
 var arrayBufferConcat = require('arraybuffer-concat');
 const { DicomLoaderService } = OHIF.utils;
@@ -22,26 +22,22 @@ export default class AIAAVolume {
     this.volume = null;
   }
 
-  getOrCreate = async viewports => {
-    // TODO: cache volume based on active view port IDs
-    this.volume = await this.createDataVol(viewports);
+  getOrCreateNifti = async () => {
+    this.volume = await this.createNiftiData();
     return this.volume;
   };
 
-  createDicomDataDummy = async viewports => {
+  createDicomDataDummy = async () => {
     return null;
   };
 
-  createDicomData = async (viewports,
-                           studies,
-                           StudyInstanceUID,
-                           SeriesInstanceUID) => {
+  createDicomData = async (studies, StudyInstanceUID, SeriesInstanceUID) => {
     console.info('About to load the dicom here...');
     console.log('createDataVol this takes some time .......');
 
     console.info(studies);
     const study = studies.find(
-      study => study.StudyInstanceUID === StudyInstanceUID,
+      study => study.StudyInstanceUID === StudyInstanceUID
     );
     console.info(study.displaySets);
 
@@ -50,7 +46,9 @@ export default class AIAAVolume {
     });
 
     if (displaySets.length > 1) {
-      console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
+      console.warn(
+        'More than one display set with the same SeriesInstanceUID. This is not supported yet...'
+      );
     }
 
     const d = displaySets[0];
@@ -58,7 +56,7 @@ export default class AIAAVolume {
     console.info(d);
 
     // TODO:: Remove this hack; Instead of fetching it again, get it from imageCache
-    var n = {
+    let n = {
       displaySetInstanceUID: d.displaySetInstanceUID,
       SeriesDate: d.SeriesDate,
       SeriesTime: d.SeriesTime,
@@ -79,11 +77,11 @@ export default class AIAAVolume {
 
     // HACK:: DicomLoaderService.findDicomDataPromise only reads first image from ImageSet
     let imagesBuffers = [];
-    for (var i = 0; i < d.images.length; i++) {
+    for (let i = 0; i < d.images.length; i++) {
       n.images = [];
       n.images.push(d.images[i]);
-      for (var j = 0; j < d.images.length; j++) {
-        if (i == j) {
+      for (let j = 0; j < d.images.length; j++) {
+        if (i === j) {
           continue;
         }
         n.images.push(d.images[j]);
@@ -91,7 +89,7 @@ export default class AIAAVolume {
 
       console.info('Getting Dicom for: ' + i);
       const volume = await DicomLoaderService.findDicomDataPromise(n, studies);
-      var image_in = new Blob([volume], { type: 'application/octet-stream' });
+      let image_in = new Blob([volume], { type: 'application/octet-stream' });
       imagesBuffers.push({ data: image_in, name: 'image_' + i + '.dcm' });
     }
 
@@ -99,13 +97,11 @@ export default class AIAAVolume {
     return imagesBuffers;
   };
 
-  createDataVol = async viewports => {
-    console.log('createDataVol this takes some time .......');
-    console.log(viewports);
+  createNiftiData = async () => {
+    console.log('createNiftiData starts.......');
 
     // TODO: How to get correct stackState here
-    var elements = cornerstone.getEnabledElements();
-    console.log(elements);
+    let elements = cornerstone.getEnabledElements();
     const element = elements[0].element;
     const stackState = cornerstoneTools.getToolState(element, 'stack');
     console.log(stackState);
@@ -115,7 +111,7 @@ export default class AIAAVolume {
     this.metadata.nSlices = imageIds.length;
 
     const loadImagePromises = imageIds.map(cornerstone.loadAndCacheImage);
-    var a;
+    let a;
 
     try {
       const images = await Promise.all(loadImagePromises);
@@ -186,7 +182,7 @@ export default class AIAAVolume {
       resolution,
       this.metadata.imagePositionPatient,
       this.metadata.slope,
-      this.metadata.intercept,
+      this.metadata.intercept
     );
     if (debug) {
       this.downloadNiiArrLocally(niiArray);
@@ -195,14 +191,14 @@ export default class AIAAVolume {
   };
 
   downloadNiiArrLocally = arr => {
-    var blob = new Blob([arr]);
-    var blobUrl = window.URL.createObjectURL(blob);
+    let blob = new Blob([arr]);
+    let blobUrl = window.URL.createObjectURL(blob);
 
     this.downloadFile(blobUrl, 'image2AIAA.nii');
   };
 
   downloadFile = (data, fileName) => {
-    var link = document.createElement('a');
+    let link = document.createElement('a');
     link.href = data;
     link.download = fileName;
     link.click();
@@ -217,7 +213,7 @@ export default class AIAAVolume {
     resolution,
     imagePositionPatient,
     slope = 1,
-    intercept = 0,
+    intercept = 0
   ) => {
     let buffer = new ArrayBuffer(352); //header of the nifty file 352 bytes for any nifti
     for (let i = 0; i < buffer.byteLength; ++i) {
@@ -255,7 +251,7 @@ export default class AIAAVolume {
     dim[6] = 1;
     dim[7] = 1;
 
-    var code_BitPix = [4, 16];
+    let code_BitPix = [4, 16];
     datatype[0] = code_BitPix[0];
     bitpix[0] = code_BitPix[1];
     pixdim[0] = 1;
@@ -290,7 +286,7 @@ export default class AIAAVolume {
     magic[2] = 49;
     magic[3] = 0;
 
-    var result = arrayBufferConcat(buffer, dst_array.data);
+    let result = arrayBufferConcat(buffer, dst_array.data);
 
     return result;
   };

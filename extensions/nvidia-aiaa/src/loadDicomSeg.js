@@ -6,12 +6,12 @@ export default async function loadDicomSeg(
   segArrayBuffer,
   StudyInstanceUID,
   SeriesInstanceUID,
-  studies,
+  studies
 ) {
   const imageIds = _getImageIdsForDisplaySet(
     studies,
     StudyInstanceUID,
-    SeriesInstanceUID,
+    SeriesInstanceUID
   );
 
   console.info('Fetching All Images for SEG; Length = ' + imageIds.length);
@@ -48,7 +48,7 @@ export default async function loadDicomSeg(
     labelmapIndex,
     segMetadata,
     imageIds.length,
-    segmentsOnFrame,
+    segmentsOnFrame
   );
 }
 
@@ -77,14 +77,14 @@ function _parseSeg(arrayBuffer, imageIds) {
   return dcmjs.adapters.Cornerstone.Segmentation.generateToolState(
     imageIds,
     arrayBuffer,
-    cornerstone.metaData,
+    cornerstone.metaData
   );
 }
 
 function _getImageIdsForDisplaySet(
   studies,
   StudyInstanceUID,
-  SeriesInstanceUID,
+  SeriesInstanceUID
 ) {
   const study = studies.find(
     study => study.StudyInstanceUID === StudyInstanceUID,

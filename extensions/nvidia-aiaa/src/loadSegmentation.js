@@ -8,7 +8,7 @@ const { DicomLoaderService } = OHIF.utils;
 export default async function loadSegmentation(
   segDisplaySet,
   referencedDisplaySet,
-  studies,
+  studies
 ) {
   const { StudyInstanceUID } = referencedDisplaySet;
 
@@ -19,7 +19,7 @@ export default async function loadSegmentation(
   console.info('About to load the dicom seg here...');
   const segArrayBuffer = await DicomLoaderService.findDicomDataPromise(
     segDisplaySet,
-    studies,
+    studies
   );
 
   console.info('Reading DICOM seg done...');
@@ -32,7 +32,7 @@ export default async function loadSegmentation(
   const imageIds = _getImageIdsForDisplaySet(
     studies,
     StudyInstanceUID,
-    referencedDisplaySet.SeriesInstanceUID,
+    referencedDisplaySet.SeriesInstanceUID
   );
 
   console.info('Fetching All Images for SEG');
@@ -55,7 +55,7 @@ export default async function loadSegmentation(
     labelmapIndex,
     segMetadata,
     imageIds.length,
-    segmentsOnFrame,
+    segmentsOnFrame
   );
 
   segDisplaySet.labelmapIndex = labelmapIndex;
@@ -86,14 +86,14 @@ function _parseSeg(arrayBuffer, imageIds) {
   return dcmjs.adapters.Cornerstone.Segmentation.generateToolState(
     imageIds,
     arrayBuffer,
-    cornerstone.metaData,
+    cornerstone.metaData
   );
 }
 
 function _getImageIdsForDisplaySet(
   studies,
   StudyInstanceUID,
-  SeriesInstanceUID,
+  SeriesInstanceUID
 ) {
   const study = studies.find(
     study => study.StudyInstanceUID === StudyInstanceUID,

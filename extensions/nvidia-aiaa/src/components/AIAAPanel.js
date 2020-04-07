@@ -6,8 +6,7 @@ import cornerstoneTools, { getToolState } from 'cornerstone-tools';
 import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
-import AIAAClient from '../AIAAService/AIAAClient';
-import AIAAVolume from '../AIAAService/AIAAVolume';
+import { AIAAClient, AIAAVolume, AIAAUtils } from '../AIAAService';
 import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
@@ -28,6 +27,16 @@ ColoredCircle.propTypes = {
 
 const { studyMetadataManager } = utils;
 
+const DICOM_SERVER_INFO = {
+  server_address: '10.110.46.111',
+  server_port: 11112,
+  ae_title: 'DCM4CHEE',
+  query_level: 'PATIENT',
+  patient_id: 'unknown (not provided)',
+  study_uid: null,
+  series_uid: null,
+};
+
 export default class AIAAPanel extends Component {
   static propTypes = {
     studies: PropTypes.any,
@@ -43,6 +52,7 @@ export default class AIAAPanel extends Component {
 
   constructor(props) {
     super(props);
+    this.notification = UINotificationService.create({});
 
     console.info(props);
     const { viewports, activeIndex } = props;
@@ -67,7 +77,7 @@ export default class AIAAPanel extends Component {
     const firstImageId = studyMetadata.getFirstImageId(displaySetInstanceUID);
     console.info(firstImageId);
 
-    const aiaaServerURL = AIAAClient.getCookieURL();
+    const aiaaServerURL = AIAAUtils.getAIAACookie();
     console.info(aiaaServerURL);
 
     let segments = [];
@@ -84,7 +94,8 @@ export default class AIAAPanel extends Component {
     console.info('labelmap3D:' + labelmap3D);
 
     this.state = {
-      aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
+      aiaaServerURL:
+        aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       StudyInstanceUID: StudyInstanceUID,
       SeriesInstanceUID: SeriesInstanceUID,
       displaySetInstanceUID: displaySetInstanceUID,
@@ -95,7 +106,7 @@ export default class AIAAPanel extends Component {
       segModels: [],
       annModels: [],
       deepgrowModels: [],
-      sessionId: 'd24a46a2-7836-11ea-85db-0242ac110004'
+      sessionId: undefined,
     };
   }
 
@@ -107,7 +118,9 @@ export default class AIAAPanel extends Component {
     /* CornerstoneTools */
     const segmentationModule = cornerstoneTools.getModule('segmentation');
     const brushStackState = segmentationModule.state.series[firstImageId];
-    const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
+    const labelmap3D = brushStackState
+      ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex]
+      : null;
 
     if (!labelmap3D) {
       console.info('LabelMap3D is empty.. so zero segments');
@@ -124,7 +137,8 @@ export default class AIAAPanel extends Component {
     activeSegmentIndex = labelmap3D.activeSegmentIndex;
     console.info('activeSegmentIndex: ' + activeSegmentIndex);
 
-    const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+    const colorLutTable =
+      segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
     console.info('Length of colorLutTable: ' + colorLutTable.length);
     for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
       const meta = labelmap3D.metadata.data[i];
@@ -162,6 +176,7 @@ export default class AIAAPanel extends Component {
   onBlurSeverURL = evt => {
     let value = evt.target.value;
     this.setState({ aiaaServerURL: value });
+    AIAAUtils.setAIAACookie(value);
   };
 
   onClickModels = () => {
@@ -170,7 +185,6 @@ export default class AIAAPanel extends Component {
     let deepgrowModels = [];
 
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-    let notification = UINotificationService.create({});
     aiaaClient
       .model_list()
       .then(response => {
@@ -185,7 +199,7 @@ export default class AIAAPanel extends Component {
             deepgrowModels.push(response.data[i]);
           } else {
             console.log(
-              response.data[i].name + ' has unsupported types for this plugin',
+              response.data[i].name + ' has unsupported types for this plugin'
             );
           }
         }
@@ -196,7 +210,7 @@ export default class AIAAPanel extends Component {
           annModels: annModels,
           deepgrowModels: deepgrowModels,
         });
-        notification.show({
+        this.notification.show({
           title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models complete!',
           type: 'success',
@@ -206,7 +220,7 @@ export default class AIAAPanel extends Component {
         // this.setState({sessionId: sessionId})
       })
       .catch(error => {
-        notification.show({
+        this.notification.show({
           title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models failed!' + error,
           type: 'error',
@@ -214,74 +228,89 @@ export default class AIAAPanel extends Component {
       });
   };
 
-  onClickSegBtn = (model_name) => {
+  onClickSegBtn = async model_name => {
     console.info('On Click Segmentation: ' + model_name);
-
-    let notification = UINotificationService.create({});
     if (!model_name) {
-      notification.show({
+      this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Model is NOT selected',
         type: 'info',
       });
-      return;
+      throw Error('Model is not selected');
     }
 
     const { studies, viewports } = this.props;
     const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
     let aiaaVolume = new AIAAVolume();
-    aiaaVolume.createDicomDataDummy(viewports, studies, StudyInstanceUID, SeriesInstanceUID).then(volumes => {
-      notification.show({
-        title: 'NVIDIA AIAA',
-        message: 'AIAA Data preparation complete!',
-        type: 'success',
-      });
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+    let sessionId = this.state.sessionId;
+    // TODO:: create session here?
+    // if (sessionId === null) {
+    //   DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
+    //   DICOM_SERVER_INFO.study_uid = StudyInstanceUID;
+    //   sessionId = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
+    //   this.notification.show({
+    //     title: 'NVIDIA AIAA',
+    //     message: 'AIAA Session create success!',
+    //     type: 'success',
+    //   });
+    //   this.setState({
+    //     sessionId: sessionId,
+    //   });
+    //   console.log('Finishing creating session');
+    // }
 
-      let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-      aiaaClient
-        .segmentation(model_name, volumes, this.state.sessionId)
-        .then(response => {
-          console.log(response.data);
-          console.log(response.status);
-          console.log(response.statusText);
+    let volumes = await aiaaVolume.createDicomData(
+      studies,
+      StudyInstanceUID,
+      SeriesInstanceUID
+    );
 
-          loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
-
-          const segmentList = AIAAPanel.getSegmentList(firstImageId);
-          const segments = segmentList.segments;
-          const activeSegmentIndex = segmentList.activeSegmentIndex;
-          const labelmap3D = segmentList.labelmap3D;
-
-          this.setState({
-            segments,
-            activeSegmentIndex,
-            labelmap3D,
-          });
-        })
-        .then(() => {
-          notification.show({
-            title: 'NVIDIA AIAA',
-            message: 'AIAA Auto-Segmentation complete!',
-            type: 'success',
-          });
-        })
-        .catch(error => {
-          console.error(error);
-          notification.show({
-            title: 'NVIDIA AIAA',
-            message: 'AIAA Auto-Segmentation failed!' + error,
-            type: 'error',
-          });
-        });
+    console.log('data preparation complete');
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'AIAA Data preparation complete!',
+      type: 'success',
     });
-  };
 
-  onClickAnnBtn = () => {
-  };
+    let response = await aiaaClient.segmentation(
+      model_name,
+      volumes,
+      this.state.sessionId
+    );
 
-  onClickDeepgrowBtn = () => {
-  };
+    console.log(response.data);
+    console.log(response.status);
+    console.log(response.statusText);
+
+    await loadDicomSeg(
+      response.data,
+      StudyInstanceUID,
+      SeriesInstanceUID,
+      studies
+    );
+
+    const segmentList = AIAAPanel.getSegmentList(firstImageId);
+    const segments = segmentList.segments;
+    const activeSegmentIndex = segmentList.activeSegmentIndex;
+    const labelmap3D = segmentList.labelmap3D;
+
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'AIAA Auto-Segmentation complete!',
+      type: 'success',
+    });
+  }
+
+  onClickAnnBtn = () => {};
+
+  onClickDeepgrowBtn = () => {};
 
   onClickAddSegment = () => {
     console.info('Creating New Segment...');
@@ -309,7 +338,7 @@ export default class AIAAPanel extends Component {
       console.info('Label Map is NOT NULL');
       const { metadata } = labelmap3D;
 
-      var ids = [0];
+      let ids = [0];
       for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
         ids.push(labelmap3D.metadata.data[i].SegmentNumber);
       }
@@ -348,20 +377,22 @@ export default class AIAAPanel extends Component {
   };
 
   onClickSelectSegment = () => {
-    var segItems = [];
-    var checkboxes = document.querySelectorAll('input[name=segitem]:checked');
-    for (var i = 0; i < checkboxes.length; i++) {
+    let segItems = [];
+    let checkboxes = document.querySelectorAll('input[name=segitem]:checked');
+    for (let i = 0; i < checkboxes.length; i++) {
       segItems.push(checkboxes[i].value);
     }
-    document.getElementById('segDeleteBtn').disabled = segItems.length ? false : true;
+    document.getElementById('segDeleteBtn').disabled = segItems.length
+      ? false
+      : true;
   };
 
   onClickDeleteSegments = () => {
     console.info('Deleting Segment(s)...');
 
-    var segItems = [];
-    var checkboxes = document.querySelectorAll('input[name=segitem]:checked');
-    for (var i = 0; i < checkboxes.length; i++) {
+    let segItems = [];
+    let checkboxes = document.querySelectorAll('input[name=segitem]:checked');
+    for (let i = 0; i < checkboxes.length; i++) {
       segItems.push(parseInt(checkboxes[i].value));
     }
     console.info('Delete segments: ' + segItems);
@@ -377,7 +408,7 @@ export default class AIAAPanel extends Component {
     }
 
     const { metadata } = labelmap3D;
-    var newData = [undefined];
+    let newData = [undefined];
     for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
       const meta = labelmap3D.metadata.data[i];
       if (!segItems.includes(meta.SegmentNumber)) {
@@ -404,20 +435,28 @@ export default class AIAAPanel extends Component {
 
   onClickReloadSegments = () => {
     console.info('Reload Segments....');
-    //var url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
-    var url = 'http://10.110.46.111:8002/liver.dcm';
-    //var url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
-    axios.get(url, { responseType: 'arraybuffer' })
-      .then((response) => {
+    //let url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
+    let url = 'http://10.110.46.111:8002/liver.dcm';
+    //let url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
+    axios
+      .get(url, { responseType: 'arraybuffer' })
+      .then(response => {
         console.log(response.data);
         console.log(response.status);
         console.log(response.statusText);
 
-        const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+        const { StudyInstanceUID, SeriesInstanceUID } = this.state;
         const { studies } = this.props;
 
-        loadDicomSeg(response.data, StudyInstanceUID, SeriesInstanceUID, studies);
-
+        return loadDicomSeg(
+          response.data,
+          StudyInstanceUID,
+          SeriesInstanceUID,
+          studies
+        );
+      })
+      .then(() => {
+        const { firstImageId } = this.state;
         const segmentList = AIAAPanel.getSegmentList(firstImageId);
         const segments = segmentList.segments;
         const activeSegmentIndex = segmentList.activeSegmentIndex;
@@ -428,8 +467,7 @@ export default class AIAAPanel extends Component {
           activeSegmentIndex,
           labelmap3D,
         });
-
-        // TODO:: How to refresh ViewPort here.. Currently, you have to sroll to differnt slice to see the mask..
+        // TODO:: How to refresh ViewPort here.. Currently, you have to scroll to different slice to see the mask..
       });
   };
 
@@ -459,62 +497,80 @@ export default class AIAAPanel extends Component {
         </h4>
         <table>
           <tbody>
-          <tr>
-            <td>
-              <button className="segButton" onClick={this.onClickAddSegment} title="Add Segment">
-                <Icon name="plus" width="12px" height="12px"/>
-                Add
-              </button>
-              &nbsp;
-              <button className="segButton" onClick={this.onClickDeleteSegments} id="segDeleteBtn" title="Delete Selected Segment">
-                <Icon name="trash" width="12px" height="12px"/>
-                Remove
-              </button>
-            </td>
-            <td align="right">
-              <button className="segButton" onClick={this.onClickReloadSegments} title={"Reload Segments"}>
-                <Icon name="reset" width="12px" height="12px"/>
-                Reload
-              </button>
-            </td>
-          </tr>
+            <tr>
+              <td>
+                <button
+                  className="segButton"
+                  onClick={this.onClickAddSegment}
+                  title="Add Segment"
+                >
+                  <Icon name="plus" width="12px" height="12px" />
+                  Add
+                </button>
+                &nbsp;
+                <button
+                  className="segButton"
+                  onClick={this.onClickDeleteSegments}
+                  id="segDeleteBtn"
+                  title="Delete Selected Segment"
+                >
+                  <Icon name="trash" width="12px" height="12px" />
+                  Remove
+                </button>
+              </td>
+              <td align="right">
+                <button
+                  className="segButton"
+                  onClick={this.onClickReloadSegments}
+                  title={'Reload Segments'}
+                >
+                  <Icon name="reset" width="12px" height="12px" />
+                  Reload
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
 
         <div className="segSection">
           <table className="segTable">
             <thead>
-            <tr>
-              <th width="2%">#</th>
-              <th width="8%">Color</th>
-              <th width="60%">Name</th>
-              <th width="30%">Desc</th>
-            </tr>
+              <tr>
+                <th width="2%">#</th>
+                <th width="8%">Color</th>
+                <th width="60%">Name</th>
+                <th width="30%">Desc</th>
+              </tr>
             </thead>
             <tbody>
-            {segments.map(seg => (
-              <tr key={seg.index}>
-                <td>
-                  <input type="checkbox" name="segitem" value={seg.index} onClick={this.onClickSelectSegment}/>
-                </td>
-                <td>
-                  <ColoredCircle color={seg.color}/>
-                </td>
-                <td
-                  className="segEdit"
-                  contentEditable="true"
-                  suppressContentEditableWarning="true"
-                >
-                  {seg.meta.SegmentLabel}
-                </td>
-                <td
-                  contentEditable="true"
-                  suppressContentEditableWarning="true"
-                >
-                  {seg.meta.SegmentDescription}
-                </td>
-              </tr>
-            ))}
+              {segments.map(seg => (
+                <tr key={seg.index}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      name="segitem"
+                      value={seg.index}
+                      onClick={this.onClickSelectSegment}
+                    />
+                  </td>
+                  <td>
+                    <ColoredCircle color={seg.color} />
+                  </td>
+                  <td
+                    className="segEdit"
+                    contentEditable="true"
+                    suppressContentEditableWarning="true"
+                  >
+                    {seg.meta.SegmentLabel}
+                  </td>
+                  <td
+                    contentEditable="true"
+                    suppressContentEditableWarning="true"
+                  >
+                    {seg.meta.SegmentDescription}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -522,47 +578,47 @@ export default class AIAAPanel extends Component {
         <p>&nbsp;</p>
         <table className="aiaaTable">
           <tbody>
-          <tr>
-            <td colSpan="3">AIAA server URL:</td>
-          </tr>
-          <tr>
-            <td width="80%">
-              <input
-                className="aiaaInput"
-                name="aiaaServerURL"
-                type="text"
-                defaultValue={aiaaServerURL}
-                onBlur={this.onBlurSeverURL}
-              />
-            </td>
-            <td width="2%">&nbsp;</td>
-            <td width="18%" title="Connect to AIAA">
-              <button className="aiaaButton" onClick={this.onClickModels}>
-                <Icon name="reset" width="16px" height="16px"/>
-              </button>
-            </td>
-          </tr>
-          <tr>
-            <td colSpan="3">
-              <a
-                href={aiaaServerURL + 'models'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                All models
-              </a>
+            <tr>
+              <td colSpan="3">AIAA server URL:</td>
+            </tr>
+            <tr>
+              <td width="80%">
+                <input
+                  className="aiaaInput"
+                  name="aiaaServerURL"
+                  type="text"
+                  defaultValue={aiaaServerURL}
+                  onBlur={this.onBlurSeverURL}
+                />
+              </td>
+              <td width="2%">&nbsp;</td>
+              <td width="18%">
+                <button className="aiaaButton" onClick={this.onClickModels}>
+                  <Icon name="reset" width="16px" height="16px" />
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colSpan="3">
+                <a
+                  href={aiaaServerURL + 'v1/models'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  All models
+                </a>
 
-              <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
+                <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
-              <a
-                href={aiaaServerURL + 'logs?lines=100'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                AIAA Logs
-              </a>
-            </td>
-          </tr>
+                <a
+                  href={aiaaServerURL + 'logs?lines=100'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  AIAA Logs
+                </a>
+              </td>
+            </tr>
           </tbody>
         </table>
 

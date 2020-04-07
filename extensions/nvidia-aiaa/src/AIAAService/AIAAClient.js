@@ -1,46 +1,12 @@
 import AIAAUtils from './AIAAUtils';
 
-function set_cookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
-  console.log('Nvidia AIAA ---------------set cookie', name, ' value=', value);
-
-  var cookie_string = name + '=' + escape(value);
-
-  if (exp_y) {
-    var expires = new Date(exp_y, exp_m, exp_d);
-
-    cookie_string += '; expires=' + expires.toGMTString();
-  }
-
-  if (path) cookie_string += '; path=' + escape(path);
-
-  if (domain) cookie_string += '; domain=' + escape(domain);
-
-  if (secure) cookie_string += '; secure';
-
-  document.cookie = cookie_string;
-}
-
-function get_cookie(cookie_name) {
-  var results = document.cookie.match(
-    '(^|;) ?' + cookie_name + '=([^;]*)(;|$)',
-  );
-
-  if (results) return unescape(results[2]);
-  else return null;
-}
-
 export default class AIAAClient {
   constructor(server_url) {
     this.server_url = new URL(server_url);
   }
 
-  static getCookieURL() {
-    return get_cookie('nvidiaAIAAServerUrl');
-  }
-
-  setServerURL(url, use_cookie = true) {
+  setServerURL(url) {
     this.server_url = url;
-    if (use_cookie) set_cookie('nvidiaAIAAServerUrl', url);
   }
 
   getServerURL() {
@@ -63,25 +29,24 @@ export default class AIAAClient {
    * @param {string} model_name
    * @param {string} label
    */
-  async model_list(model_name, label) {
+  async model_list(model_name = undefined, label = undefined) {
     console.log('AIAA fetching models');
     let model_url = new URL('/v1/models', this.server_url);
     if (model_name !== undefined)
       model_url.searchParams.append('model', model_name);
     else if (label !== undefined) model_url.searchParams.append('label', label);
 
-    let response = await AIAAUtils.api_get(model_url.toString());
-    return response;
+    return await AIAAUtils.api_get(model_url.toString());
   }
 
   /**
    * Calls AIAA segmentation API
    *
    * @param {string} model_name
-   * @param {string} image_in
+   * @param {file|Array} image_in
    * @param {string} session_id
    */
-  async segmentation(model_name, image_in, session_id) {
+  async segmentation(model_name, image_in, session_id = undefined) {
     console.log('AIAAClient - calling segmentation');
     let seg_url = new URL('/v1/segmentation', this.server_url);
     seg_url.searchParams.append('model', model_name);
@@ -92,13 +57,25 @@ export default class AIAAClient {
       seg_url.searchParams.append('session_id', session_id);
 
     const params = {};
-    let response = await AIAAUtils.api_post_file(
-      seg_url.toString(),
-      params,
-      image_in,
-    );
+    return await AIAAUtils.api_post_file(seg_url.toString(), params, image_in);
+  }
 
-    return response;
+  /**
+   * Calls AIAA create session API
+   *
+   * @param image_in
+   * @param params
+   * @param {int} expiry: expiry in seconds.
+   *
+   * @return {string} session_id
+   *
+   */
+  async createSession(image_in, params, expiry = 0) {
+    // TODO:: make this work
+    console.log('AIAAClient - create session');
+    let session_url = new URL('/session', this.server_url);
+    session_url.searchParams.append('expiry', expiry);
+    return await AIAAUtils.api_put(session_url.toString(), params, image_in);
   }
 
   // TODO:: rewrite this
