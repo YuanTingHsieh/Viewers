@@ -73,7 +73,7 @@ export default class AIAAClient {
   async createSession(image_in, params, expiry = 0) {
     // TODO:: make this work
     console.log('AIAAClient - create session');
-    let session_url = new URL('/session', this.server_url);
+    let session_url = new URL('/session/', this.server_url);
     session_url.searchParams.append('expiry', expiry);
     return await AIAAUtils.api_put(session_url.toString(), params, image_in);
   }

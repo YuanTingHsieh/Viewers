@@ -35,6 +35,10 @@ function constructFormData(params, file) {
   return formData;
 }
 
+function constructFormOrJsonData(params, file) {
+  return (file) ? constructFormData(params, file) : params;
+}
+
 export default class AIAAUtils {
   static api_get(url) {
     console.log('AIAAUtils - GET:: ' + url);
@@ -63,7 +67,7 @@ export default class AIAAUtils {
         responseType: 'arraybuffer', // direct receive as buffer array
 
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': ((file) ? 'multipart/form-data' : 'application/json'),
           accept: 'multipart/form-data',
         },
       })
@@ -86,13 +90,13 @@ export default class AIAAUtils {
 
   static api_put(url, params, file) {
     console.log('AIAAUtils - PUT:: ' + url);
-    let formData = constructFormData(params, file);
+    let data = constructFormOrJsonData(params, file);
     return axios
-      .put(url, formData, {
-        responseType: 'text',
+      .post(url, data, {
+        responseType: 'application/json',
         headers: {
-          'Content-Type': 'multipart/form-data',
-          accept: 'multipart/form-data',
+          'Content-Type': ((file) ? 'multipart/form-data' : 'application/json'),
+          accept: 'application/json',
         },
       })
       .then(function(response) {

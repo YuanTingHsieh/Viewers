@@ -6,7 +6,7 @@ import cornerstoneTools, { getToolState } from 'cornerstone-tools';
 import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
-import { AIAAClient, AIAAVolume, AIAAUtils } from '../AIAAService';
+import { AIAAClient, AIAAUtils, AIAAVolume } from '../AIAAService';
 import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
@@ -55,11 +55,14 @@ export default class AIAAPanel extends Component {
     this.notification = UINotificationService.create({});
 
     console.info(props);
-    const { viewports, activeIndex } = props;
+    const { viewports, activeIndex, studies } = props;
     console.info('activeIndex = ' + activeIndex);
 
     const viewport = viewports[activeIndex];
     console.info(viewport);
+
+    const { PatientID } = studies[activeIndex];
+    console.info('PatientID = ' + PatientID);
 
     const {
       StudyInstanceUID,
@@ -94,8 +97,8 @@ export default class AIAAPanel extends Component {
     console.info('labelmap3D:' + labelmap3D);
 
     this.state = {
-      aiaaServerURL:
-        aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
+      // DICOM
+      PatientID: PatientID,
       StudyInstanceUID: StudyInstanceUID,
       SeriesInstanceUID: SeriesInstanceUID,
       displaySetInstanceUID: displaySetInstanceUID,
@@ -103,10 +106,12 @@ export default class AIAAPanel extends Component {
       segments: segments,
       activeSegmentIndex: activeSegmentIndex,
       labelmap3D: labelmap3D,
+      // AIAA
+      aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       segModels: [],
       annModels: [],
       deepgrowModels: [],
-      sessionId: undefined,
+      session_id: undefined,
     };
   }
 
@@ -228,8 +233,66 @@ export default class AIAAPanel extends Component {
       });
   };
 
+  onCreateOrGetAiaaSession = async (prefetch) => {
+    if (this.state.session_id) {
+      // TODO:: Check if session_id is valid and support update session expiry in AIAA
+      // GET /session/?update_ts=true will get if session is valid and resets the expiry period
+      return this.state.session_id;
+    }
+
+    let aiaaVolume = new AIAAVolume();
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+
+    const { studies } = this.props;
+    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
+
+    // Method 1
+    let response = null;
+    if (!prefetch) {
+      DICOM_SERVER_INFO.patient_id = PatientID;
+      DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
+      DICOM_SERVER_INFO.study_uid = StudyInstanceUID;
+      DICOM_SERVER_INFO.query_level = 'SERIES';
+
+      response = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
+    } else {
+      let volumes = await aiaaVolume.createDicomData(
+        studies,
+        StudyInstanceUID,
+        SeriesInstanceUID,
+      );
+      console.log('data preparation complete');
+
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'AIAA Data preparation complete!',
+        type: 'success',
+      });
+
+      response = await aiaaClient.createSession(volumes, null);
+    }
+
+    console.info(response);
+    const { session_id } = response.data;
+    console.info('Session ID: ' + session_id + "; Response Session ID: " + response.data.session_id);
+
+    this.setState({
+      session_id,
+    });
+
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'AIAA Session create success!',
+      type: 'success',
+    });
+
+    console.log('Finishing creating session');
+    return session_id;
+  };
+
   onClickSegBtn = async model_name => {
     console.info('On Click Segmentation: ' + model_name);
+
     if (!model_name) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -239,45 +302,18 @@ export default class AIAAPanel extends Component {
       throw Error('Model is not selected');
     }
 
-    const { studies, viewports } = this.props;
+    const { studies } = this.props;
     const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
-
-    let aiaaVolume = new AIAAVolume();
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-    let sessionId = this.state.sessionId;
-    // TODO:: create session here?
-    // if (sessionId === null) {
-    //   DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
-    //   DICOM_SERVER_INFO.study_uid = StudyInstanceUID;
-    //   sessionId = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
-    //   this.notification.show({
-    //     title: 'NVIDIA AIAA',
-    //     message: 'AIAA Session create success!',
-    //     type: 'success',
-    //   });
-    //   this.setState({
-    //     sessionId: sessionId,
-    //   });
-    //   console.log('Finishing creating session');
-    // }
 
-    let volumes = await aiaaVolume.createDicomData(
-      studies,
-      StudyInstanceUID,
-      SeriesInstanceUID
-    );
-
-    console.log('data preparation complete');
-    this.notification.show({
-      title: 'NVIDIA AIAA',
-      message: 'AIAA Data preparation complete!',
-      type: 'success',
-    });
-
+    // Wait for AIAA session
+    // TODO:: Disable the button (avoid double click)
+    const session_id = await this.onCreateOrGetAiaaSession(true);
+    console.info('Using AIAA Session: ' + session_id);
     let response = await aiaaClient.segmentation(
       model_name,
-      volumes,
-      this.state.sessionId
+      null,
+      session_id
     );
 
     console.log(response.data);
