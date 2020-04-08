@@ -92,7 +92,7 @@ export default class AIAAUtils {
     console.log('AIAAUtils - PUT:: ' + url);
     let data = constructFormOrJsonData(params, file);
     return axios
-      .post(url, data, {
+      .put(url, data, {
         responseType: 'application/json',
         headers: {
           'Content-Type': ((file) ? 'multipart/form-data' : 'application/json'),
