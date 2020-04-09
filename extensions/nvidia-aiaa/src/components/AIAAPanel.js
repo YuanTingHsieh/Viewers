@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import MD5 from 'md5.js';
 
 import { Icon } from '@ohif/ui';
 import cornerstoneTools from 'cornerstone-tools';
@@ -88,7 +89,7 @@ export default class AIAAPanel extends Component {
     const firstImageId = studyMetadata.getFirstImageId(displaySetInstanceUID);
     console.debug(firstImageId);
 
-    const aiaaServerURL = AIAAUtils.getAIAACookie();
+    const aiaaServerURL = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL');
     console.debug(aiaaServerURL);
 
     let segments = [];
@@ -118,15 +119,16 @@ export default class AIAAPanel extends Component {
       aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       segModels: [],
       annModels: [],
-      deepgrowModels: [],
-      session_id: undefined,
+      deepgrowModels: []
     };
+
+    this.onClickModels();
   }
 
   onBlurSeverURL = evt => {
     let value = evt.target.value;
     this.setState({ aiaaServerURL: value });
-    AIAAUtils.setAIAACookie(value);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', value);
   };
 
   onClickModels = () => {
@@ -164,6 +166,7 @@ export default class AIAAPanel extends Component {
           title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models complete!',
           type: 'success',
+          duration: 2000
         });
 
         // TODO:: Check + Create AIAA Session if required
@@ -179,17 +182,26 @@ export default class AIAAPanel extends Component {
   };
 
   onCreateOrGetAiaaSession = async (prefetch) => {
-    if (this.state.session_id) {
-      // TODO:: Check if session_id is valid and support update session expiry in AIAA
-      // GET /session/?update_ts=true will get if session is valid and resets the expiry period
-      return this.state.session_id;
-    }
-
-    let aiaaVolume = new AIAAVolume();
-    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-
     const { studies } = this.props;
     const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
+
+    const cookiePostfix = new MD5().update(PatientID + StudyInstanceUID + SeriesInstanceUID).digest('hex');
+    const cookieId = 'NVIDIA_AIAA_SESSION_ID_' + cookiePostfix;
+    console.info('Using cookieId: ' + cookieId);
+
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+    var c_session_id = AIAAUtils.getAIAACookie(cookieId);
+    console.info('Session ID from COOKIE: ' + c_session_id);
+
+    if (c_session_id) {
+      const response = await aiaaClient.getSession(c_session_id);
+      console.info('Is session valid (200 OK)?? => ' + response.status);
+      if (response.status === 200) {
+        return c_session_id;
+      }
+
+      console.info('Invalidate session (as it might have got expired)');
+    }
 
     // Method 1
     let response = null;
@@ -201,6 +213,7 @@ export default class AIAAPanel extends Component {
 
       response = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
     } else {
+      let aiaaVolume = new AIAAVolume();
       let volumes = await aiaaVolume.createDicomData(
         studies,
         StudyInstanceUID,
@@ -221,10 +234,6 @@ export default class AIAAPanel extends Component {
     const { session_id } = response.data;
     console.info('Session ID: ' + session_id + '; Response Session ID: ' + response.data.session_id);
 
-    this.setState({
-      session_id,
-    });
-
     this.notification.show({
       title: 'NVIDIA AIAA',
       message: 'AIAA Session create success!',
@@ -232,6 +241,7 @@ export default class AIAAPanel extends Component {
     });
 
     console.log('Finishing creating session');
+    AIAAUtils.setAIAACookie(cookieId, session_id);
     return session_id;
   };
 

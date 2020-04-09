@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// TODO:: Expiry params can be much easier.. (instead of YYYYMMDD)
 function _setCookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
   let cookie_string = name + '=' + escape(value);
   if (exp_y) {
@@ -111,9 +112,9 @@ export default class AIAAUtils {
       });
   }
 
-  static setAIAACookie(value, exp_y, exp_m, exp_d, path, domain, secure) {
+  static setAIAACookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
     return _setCookie(
-      'nvidiaAIAAServerUrl',
+      name,
       value,
       exp_y,
       exp_m,
@@ -124,7 +125,7 @@ export default class AIAAUtils {
     );
   }
 
-  static getAIAACookie() {
-    return _getCookie('nvidiaAIAAServerUrl');
+  static getAIAACookie(name) {
+    return _getCookie(name);
   }
 }
