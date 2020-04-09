@@ -40,7 +40,7 @@
       background-color: var(--ui-sky-blue)
 
   .segSection
-    height: 100px;
+    height: 120px;
     overflow-y: auto;
     overflow-x: hidden;
     border: 1px solid;
@@ -82,6 +82,49 @@
 
   .aiaaTable tr td
     border: 0 solid;
+
+  .settings_active,
+  .settings_header {
+    background-color: black;
+    color: white;
+    cursor: pointer;
+    padding: 5px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+  }
+
+  .settings_active {
+    background-color: #403f3d;
+  }
+  .settings_header:hover {
+    background-color: #2b2a28;
+  }
+
+  .settings_header:after {
+    content: '\002B';
+    color: white;
+    font-weight: bold;
+    float: right;
+    margin-left: 5px;
+  }
+
+  .settings_active:after {
+    content: '\2212';
+    color: white;
+    font-weight: bold;
+    float: right;
+    margin-left: 5px;
+  }
+
+  .settings_content {
+    cursor: pointer;
+    color: #fff;
+    background-color: #2b2a28;
+    padding: 10px
+    font-size: small
+  }
 
   .tabs {
     position: relative;
@@ -128,7 +171,7 @@
   }
 
   .tab-content {
-    height: 15rem;
+    height: 13rem;
     position: absolute;
     z-index: 1;
     top: 2.75em;
@@ -139,6 +182,7 @@
     opacity: 0;
     transition: all 0.35s;
     width: 100%;
+    font-size: small
   }
 
   .tab-switch:checked + .tab-label {

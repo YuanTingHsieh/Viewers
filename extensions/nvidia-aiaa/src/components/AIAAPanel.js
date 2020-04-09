@@ -36,6 +36,40 @@ ColoredCircle.propTypes = {
   color: PropTypes.array.isRequired,
 };
 
+class Collapsible extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      open: false,
+    };
+    this.togglePanel = this.togglePanel.bind(this);
+  }
+
+  togglePanel(e) {
+    this.setState({ open: !this.state.open });
+  }
+
+  componentDidUpdate() {
+  }
+
+  render() {
+    return (
+      <div>
+        <button
+          onClick={e => this.togglePanel(e)}
+          className={this.state.open ? 'settings_active' : 'settings_header'}
+        >
+          {this.props.title}
+        </button>
+        {this.state.open ? (
+          <div className="settings_content">{this.props.children}</div>
+        ) : null}
+      </div>
+    );
+  }
+}
+
+
 const DICOM_SERVER_INFO = {
   server_address: '10.110.46.111',
   server_port: 11112,
@@ -119,10 +153,10 @@ export default class AIAAPanel extends Component {
       aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       segModels: [],
       annModels: [],
-      deepgrowModels: []
+      deepgrowModels: [],
     };
 
-    this.onClickModels();
+    //this.onClickModels();
   }
 
   onBlurSeverURL = evt => {
@@ -166,7 +200,7 @@ export default class AIAAPanel extends Component {
           title: 'NVIDIA AIAA',
           message: 'Fetched AIAA models complete!',
           type: 'success',
-          duration: 2000
+          duration: 2000,
         });
 
         // TODO:: Check + Create AIAA Session if required
@@ -694,7 +728,7 @@ export default class AIAAPanel extends Component {
           </table>
         </div>
 
-        <p>&nbsp;</p>
+        <br/>
         <table className="aiaaTable">
           <tbody>
           <tr>
@@ -740,6 +774,25 @@ export default class AIAAPanel extends Component {
           </tr>
           </tbody>
         </table>
+
+        <Collapsible title="More Settings...">
+          <div>
+            <table>
+              <tbody className="aiaaTable">
+              <tr>
+                <td width="70%">Enable AIAA Session:</td>
+                <td width="2%">&nbsp;</td>
+                <td width="28%"><input type="checkbox" defaultChecked/></td>
+              </tr>
+              <tr>
+                <td width="70%">Prefetch Images:</td>
+                <td width="2%">&nbsp;</td>
+                <td width="28%"><input type="checkbox"/></td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </Collapsible>
 
         <div className="tabs">
           <div className="tab">
