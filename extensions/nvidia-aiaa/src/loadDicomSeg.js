@@ -1,17 +1,20 @@
 import * as dcmjs from 'dcmjs';
 import cornerstone from 'cornerstone-core';
 import cornerstoneTools from 'cornerstone-tools';
+import { getImageIdsForDisplaySet, getNextLabelmapIndex } from './utils/genericUtils';
+
 
 export default async function loadDicomSeg(
   segArrayBuffer,
   StudyInstanceUID,
   SeriesInstanceUID,
-  studies
+  studies,
 ) {
-  const imageIds = _getImageIdsForDisplaySet(
+
+  const imageIds = getImageIdsForDisplaySet(
     studies,
     StudyInstanceUID,
-    SeriesInstanceUID
+    SeriesInstanceUID,
   );
 
   console.info('Fetching All Images for SEG; Length = ' + imageIds.length);
@@ -38,7 +41,7 @@ export default async function loadDicomSeg(
   }
 
   // TODO: Could define a color LUT based on colors in the SEG.
-  const labelmapIndex = _getNextLabelmapIndex(firstImageId);
+  const labelmapIndex = getNextLabelmapIndex(firstImageId);
   console.info('labelmapIndex = ' + labelmapIndex);
   console.info(segMetadata);
 
@@ -48,59 +51,14 @@ export default async function loadDicomSeg(
     labelmapIndex,
     segMetadata,
     imageIds.length,
-    segmentsOnFrame
+    segmentsOnFrame,
   );
-}
-
-function _getNextLabelmapIndex(firstImageId) {
-  const { state } = cornerstoneTools.getModule('segmentation');
-  const brushStackState = state.series[firstImageId];
-
-  let labelmapIndex = 0;
-
-  if (brushStackState) {
-    const { labelmaps3D } = brushStackState;
-    labelmapIndex = labelmaps3D.length;
-
-    for (let i = 0; i < labelmaps3D.length; i++) {
-      if (!labelmaps3D[i]) {
-        labelmapIndex = i;
-        break;
-      }
-    }
-  }
-
-  return labelmapIndex;
 }
 
 function _parseSeg(arrayBuffer, imageIds) {
   return dcmjs.adapters.Cornerstone.Segmentation.generateToolState(
     imageIds,
     arrayBuffer,
-    cornerstone.metaData
+    cornerstone.metaData,
   );
-}
-
-function _getImageIdsForDisplaySet(
-  studies,
-  StudyInstanceUID,
-  SeriesInstanceUID
-) {
-  const study = studies.find(
-    study => study.StudyInstanceUID === StudyInstanceUID,
-  );
-
-  const displaySets = study.displaySets.filter(displaySet => {
-    return displaySet.SeriesInstanceUID === SeriesInstanceUID;
-  });
-
-  if (displaySets.length > 1) {
-    console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
-    // TODO -> We could make check the instance list and see if any match?
-    // Do we split the segmentation into two cornerstoneTools segmentations if there are images in both series?
-    // ^ Will that even happen?
-  }
-
-  const referencedDisplaySet = displaySets[0];
-  return referencedDisplaySet.images.map(image => image.getImageId());
 }

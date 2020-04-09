@@ -52,7 +52,8 @@
     "react-vtkjs-viewport": "^0.8.3",
     "axios": "^0.19.2",
     "arraybuffer-concat": "0.0.1",
-    "ndarray": "^1.0.19"
+    "ndarray": "^1.0.19",
+    "nifti-reader-js": "^0.5.4"
   },
   "devDependencies": {
     "@ohif/core": "^2.5.0",

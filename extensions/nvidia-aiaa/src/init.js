@@ -11,6 +11,8 @@ export default function init({ servicesManager, configuration }) {
   //servicesManager.registerService(AIAAService, configuration);
 
   console.info('NVIDIA Tool Addition');
+  console.info(AIAAProbeTool);
+
   const tools = [AIAAProbeTool];
   tools.forEach(tool => csTools.addTool(tool));
 }

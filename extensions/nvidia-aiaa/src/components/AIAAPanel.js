@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { Icon } from '@ohif/ui';
-import cornerstoneTools, { getToolState } from 'cornerstone-tools';
+import cornerstoneTools from 'cornerstone-tools';
 import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
@@ -11,6 +11,16 @@ import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
 import loadDicomSeg from '../loadDicomSeg';
+import nifti from 'nifti-reader-js';
+import {
+  getElementFromFirstImageId,
+  getImageIdsForDisplaySet,
+  getNextLabelmapIndex,
+  getSegmentList,
+} from '../utils/genericUtils';
+
+const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
+const { drawBrushPixels, getCircle } = segmentationUtils;
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -24,8 +34,6 @@ const ColoredCircle = ({ color }) => {
 ColoredCircle.propTypes = {
   color: PropTypes.array.isRequired,
 };
-
-const { studyMetadataManager } = utils;
 
 const DICOM_SERVER_INFO = {
   server_address: '10.110.46.111',
@@ -54,15 +62,15 @@ export default class AIAAPanel extends Component {
     super(props);
     this.notification = UINotificationService.create({});
 
-    console.info(props);
+    console.debug(props);
     const { viewports, activeIndex, studies } = props;
-    console.info('activeIndex = ' + activeIndex);
+    console.debug('activeIndex = ' + activeIndex);
 
     const viewport = viewports[activeIndex];
-    console.info(viewport);
+    console.debug(viewport);
 
     const { PatientID } = studies[activeIndex];
-    console.info('PatientID = ' + PatientID);
+    console.debug('PatientID = ' + PatientID);
 
     const {
       StudyInstanceUID,
@@ -70,31 +78,31 @@ export default class AIAAPanel extends Component {
       displaySetInstanceUID,
     } = viewport;
 
-    console.info('StudyInstanceUID = ' + StudyInstanceUID);
-    console.info('SeriesInstanceUID = ' + SeriesInstanceUID);
-    console.info('displaySetInstanceUID = ' + displaySetInstanceUID);
+    console.debug('StudyInstanceUID = ' + StudyInstanceUID);
+    console.debug('SeriesInstanceUID = ' + SeriesInstanceUID);
+    console.debug('displaySetInstanceUID = ' + displaySetInstanceUID);
 
-    const studyMetadata = studyMetadataManager.get(StudyInstanceUID);
-    console.info(studyMetadata);
+    const studyMetadata = utils.studyMetadataManager.get(StudyInstanceUID);
+    console.debug(studyMetadata);
 
     const firstImageId = studyMetadata.getFirstImageId(displaySetInstanceUID);
-    console.info(firstImageId);
+    console.debug(firstImageId);
 
     const aiaaServerURL = AIAAUtils.getAIAACookie();
-    console.info(aiaaServerURL);
+    console.debug(aiaaServerURL);
 
     let segments = [];
     let activeSegmentIndex = 1;
     let labelmap3D;
     if (firstImageId) {
-      const segmentList = AIAAPanel.getSegmentList(firstImageId);
+      const segmentList = getSegmentList(firstImageId);
       segments = segmentList.segments;
       activeSegmentIndex = segmentList.activeSegmentIndex;
       labelmap3D = segmentList.labelmap3D;
     }
-    console.info('segments:' + segments);
-    console.info('activeSegmentIndex:' + activeSegmentIndex);
-    console.info('labelmap3D:' + labelmap3D);
+    console.debug('segments:' + segments);
+    console.debug('activeSegmentIndex:' + activeSegmentIndex);
+    console.debug('labelmap3D:' + labelmap3D);
 
     this.state = {
       // DICOM
@@ -113,72 +121,6 @@ export default class AIAAPanel extends Component {
       deepgrowModels: [],
       session_id: undefined,
     };
-
-    // Register Events...
-    this.addEventListeners();
-  }
-
-  static getSegmentList(firstImageId) {
-    console.info('Into getSegmentList');
-    let activeSegmentIndex = 0;
-    let segments = [];
-
-    /* CornerstoneTools */
-    const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const brushStackState = segmentationModule.state.series[firstImageId];
-    const labelmap3D = brushStackState
-      ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex]
-      : null;
-
-    if (!labelmap3D) {
-      console.info('LabelMap3D is empty.. so zero segments');
-      return { segments, activeSegmentIndex, labelmap3D };
-    }
-
-    console.info('labelmap3D....');
-    console.info(labelmap3D);
-    if (!labelmap3D.metadata || !labelmap3D.metadata.data) {
-      console.info('Missing Meta Data for Label; so ignore');
-      return { segments, activeSegmentIndex, labelmap3D };
-    }
-
-    activeSegmentIndex = labelmap3D.activeSegmentIndex;
-    console.info('activeSegmentIndex: ' + activeSegmentIndex);
-
-    const colorLutTable =
-      segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
-    console.info('Length of colorLutTable: ' + colorLutTable.length);
-    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
-      const meta = labelmap3D.metadata.data[i];
-      const index = meta.SegmentNumber;
-      const color = colorLutTable[index]; // TODO:: Should not be this way to define the color
-
-      const segmentItem = {
-        index: index,
-        color: color,
-        meta: meta,
-      };
-      segments.push(segmentItem);
-    }
-
-    console.info('segments....');
-    console.info(segments);
-    return { segments, activeSegmentIndex, labelmap3D };
-  }
-
-  static getElementFromFirstImageId(firstImageId) {
-    const enabledElements = cornerstone.getEnabledElements();
-    for (let i = 0; i < enabledElements.length; i++) {
-      const enabledElement = enabledElements[0];
-      const { element } = enabledElement;
-      const stackState = getToolState(element, 'stack');
-      const stackData = stackState.data[0];
-      const firstImageIdOfEnabledElement = stackData.imageIds[0];
-
-      if (firstImageIdOfEnabledElement === firstImageId) {
-        return element;
-      }
-    }
   }
 
   onBlurSeverURL = evt => {
@@ -313,6 +255,14 @@ export default class AIAAPanel extends Component {
     // TODO:: Disable the button (avoid double click)
     const session_id = await this.onCreateOrGetAiaaSession(true);
     console.info('Using AIAA Session: ' + session_id);
+
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Running AIAA Auto-Segmentation...',
+      type: 'info',
+      duration: 10000,
+    });
+
     let response = await aiaaClient.segmentation(
       model_name,
       null,
@@ -330,7 +280,7 @@ export default class AIAAPanel extends Component {
       studies,
     );
 
-    const segmentList = AIAAPanel.getSegmentList(firstImageId);
+    const segmentList = getSegmentList(firstImageId);
     const segments = segmentList.segments;
     const activeSegmentIndex = segmentList.activeSegmentIndex;
     const labelmap3D = segmentList.labelmap3D;
@@ -345,6 +295,9 @@ export default class AIAAPanel extends Component {
       message: 'AIAA Auto-Segmentation complete!',
       type: 'success',
     });
+
+    const element = getElementFromFirstImageId(firstImageId);
+    cornerstone.updateImage(element);
   };
 
   onClickAnnBtn = () => {
@@ -353,7 +306,7 @@ export default class AIAAPanel extends Component {
   onClickDeepgrowBtn = () => {
   };
 
-  onClickAddSegment = () => {
+  createSegment(name, labelmapBuffer) {
     console.info('Creating New Segment...');
 
     let { labelmap3D, firstImageId, SeriesInstanceUID } = this.state;
@@ -366,7 +319,7 @@ export default class AIAAPanel extends Component {
         CodeMeaning: 'Anatomical Structure',
       },
       SegmentNumber: 1,
-      SegmentLabel: 'label-1',
+      SegmentLabel: name,
       SegmentDescription: '',
       SegmentAlgorithmType: 'AUTOMATIC',
       SegmentAlgorithmName: 'CNN',
@@ -394,7 +347,7 @@ export default class AIAAPanel extends Component {
       labelmap3D.activeSegmentIndex = metadata.data.length - 1;
     } else {
       console.info('Label Map is NULL');
-      const element = AIAAPanel.getElementFromFirstImageId(firstImageId);
+      const element = getElementFromFirstImageId(firstImageId);
       const segmentationModule = cornerstoneTools.getModule('segmentation');
       const labelmapData = segmentationModule.getters.labelmap2D(element);
 
@@ -406,9 +359,33 @@ export default class AIAAPanel extends Component {
       labelmap3D.activeSegmentIndex = 1;
     }
 
-    const segmentList = AIAAPanel.getSegmentList(firstImageId);
-    const segments = segmentList.segments;
-    const activeSegmentIndex = segmentList.activeSegmentIndex;
+    if (labelmapBuffer) {
+      const { studies } = this.props;
+      const { StudyInstanceUID, SeriesInstanceUID } = this.state;
+
+      const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
+      const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
+      const { metadata } = labelmap3D;
+
+      const { setters } = cornerstoneTools.getModule('segmentation');
+      setters.labelmap3DByFirstImageId(
+        imageIds[0],
+        labelmapBuffer,
+        labelmapIndex,
+        metadata,
+        imageIds.length,
+      );
+
+      const element = getElementFromFirstImageId(firstImageId);
+      cornerstone.updateImage(element);
+    }
+
+    return labelmap3D;
+  }
+
+  onClickAddSegment = () => {
+    const labelmap3D = this.createSegment('label-1');
+    const { segments, activeSegmentIndex } = getSegmentList(this.state.firstImageId);
 
     this.setState({
       segments,
@@ -463,7 +440,7 @@ export default class AIAAPanel extends Component {
     metadata.data = newData;
     labelmap3D.activeSegmentIndex = metadata.data.length > 0 ? 1 : 0;
 
-    const segmentList = AIAAPanel.getSegmentList(firstImageId);
+    const segmentList = getSegmentList(firstImageId);
     const segments = segmentList.segments;
     const activeSegmentIndex = segmentList.activeSegmentIndex;
 
@@ -474,46 +451,76 @@ export default class AIAAPanel extends Component {
     });
   };
 
-  onClickReloadSegments = () => {
+  loadNiftiData = async () => {
     console.info('Reload Segments....');
     //let url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
-    let url = 'http://10.110.46.111:8002/liver.dcm';
-    //let url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
-    axios
-      .get(url, { responseType: 'arraybuffer' })
-      .then(response => {
-        console.log(response.data);
-        console.log(response.status);
-        console.log(response.statusText);
+    //let url = 'http://10.110.46.111:8002/liver.dcm';
+    let url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
+    var niftiHeader = null;
+    var niftiImage = null;
+    var niftiExt = null;
 
-        const { StudyInstanceUID, SeriesInstanceUID } = this.state;
-        const { studies } = this.props;
+    var response = await axios.get(url, { responseType: 'arraybuffer' });
+    console.log(response.data);
+    console.log(response.status);
+    console.log(response.statusText);
 
-        return loadDicomSeg(
-          response.data,
-          StudyInstanceUID,
-          SeriesInstanceUID,
-          studies,
-        );
-      })
-      .then(() => {
-        const { firstImageId } = this.state;
-        const segmentList = AIAAPanel.getSegmentList(firstImageId);
-        const segments = segmentList.segments;
-        const activeSegmentIndex = segmentList.activeSegmentIndex;
-        const labelmap3D = segmentList.labelmap3D;
+    var data = response.data; // an ArrayBuffer
+    if (nifti.isCompressed(data)) {
+      data = nifti.decompress(data);
+    }
 
-        this.setState({
-          segments,
-          activeSegmentIndex,
-          labelmap3D,
-        });
-        // TODO:: How to refresh ViewPort here.. Currently, you have to scroll to different slice to see the mask..
-      });
+    if (nifti.isNIFTI(data)) {
+      niftiHeader = nifti.readHeader(data);
+      niftiImage = nifti.readImage(niftiHeader, data);
+      if (nifti.hasExtension(niftiHeader)) {
+        niftiExt = nifti.readExtensionData(niftiHeader, data);
+      }
+    }
+
+    console.info('NIFTI Header');
+    console.info(niftiHeader.toFormattedString());
+
+    console.info('NIFTI Image');
+    console.info(niftiImage);
+
+    console.info('NIFTI EXT');
+    console.info(niftiExt);
+
+    return {
+      header: niftiHeader,
+      image: niftiImage,
+      ext: niftiExt,
+    };
+  };
+
+  onClickReloadSegments = async () => {
+    const resp = await this.loadNiftiData();
+    console.log(resp);
+
+    this.createSegment('label-1', resp.image);
+
+    const { segments, activeSegmentIndex, labelmap3D } = getSegmentList(this.state.firstImageId);
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
   };
 
   onClickAddForeGround = (e) => {
     console.log('value of checkbox : ', e.target.checked);
+    if (e.target.checked) {
+      this.addEventListeners();
+
+      const toolName = 'AIAAProbe';
+      //const apiTool = cornerstoneTools[`${toolName}Tool`];
+      //cornerstoneTools.addTool(apiTool);
+      cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
+      console.log('Activated the tool...');
+    } else {
+      this.removeEventListeners();
+    }
   };
 
   addEventListeners() {
@@ -522,7 +529,7 @@ export default class AIAAPanel extends Component {
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.addEventListener(
         'nvidiaaiaaprobeevent',
-        this.cornerstoneEventListenerHandler,
+        this.deepgrowClickEventHandler,
       );
     });
   }
@@ -531,15 +538,45 @@ export default class AIAAPanel extends Component {
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.removeEventListener(
         'nvidiaaiaaprobeevent',
-        this.cornerstoneEventListenerHandler,
+        this.deepgrowClickEventHandler,
       );
     });
   }
 
-  cornerstoneEventListenerHandler(evt) {
-    // Handle Events
-    console.info('AIAA Probe Evnet: I suppose do something here on every probe...');
-    console.info(evt);
+  deepgrowClickEventHandler(evt) {
+    console.info('I suppose do something here on every probe...');
+    const eventData = evt.detail;
+    console.info(eventData);
+
+    const { x, y } = eventData.currentPoints.image;
+    console.info('X: ' + x + '; Y: ' + y);
+
+    const element = eventData.element;
+    console.info(element);
+
+    const { imageId, rows, columns } = eventData.image;
+    console.info('ImageId: ' + imageId);
+    console.info('rows: ' + rows + '; columns: ' + columns);
+
+    console.info('Trying to paint the segmentation pixels...');
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+
+    const labelmapData = segmentationModule.getters.labelmap2D(element);
+    const labelmap3D = labelmapData.labelmap3D;
+    const labelmap2D = labelmapData.labelmap2D;
+
+    const pointerArray = getCircle(30, rows, columns, x, y);
+    console.info('Draw Some Brush Pixels ...... ');
+
+    drawBrushPixels(
+      pointerArray,
+      labelmap2D.pixelData,
+      labelmap3D.activeSegmentIndex,
+      columns,
+      false,
+    );
+
+    cornerstone.updateImage(element);
   }
 
 

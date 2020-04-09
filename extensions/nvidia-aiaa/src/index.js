@@ -2,7 +2,7 @@ import toolbarModule from './toolbarModule';
 import panelModule from './panelModule.js';
 import sopClassHandlerModule from './OHIFDicomSegSopClassHandler';
 import init from './init';
-import AIAAProbeTool from './components/AIAAProbeTool';
+import AIAAProbeTool from './utils/AIAAProbeTool';
 
 export { AIAAProbeTool };
 

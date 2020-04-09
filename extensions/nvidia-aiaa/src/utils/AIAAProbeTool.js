@@ -1,6 +1,6 @@
 import cornerstoneTools from 'cornerstone-tools';
 
-const { ProbeTool, getToolState, toolColors } = cornerstoneTools;
+const { ProbeTool, getToolState } = cornerstoneTools;
 const triggerEvent = cornerstoneTools.importInternal('util/triggerEvent');
 const draw = cornerstoneTools.importInternal('drawing/draw');
 const drawHandles = cornerstoneTools.importInternal('drawing/drawHandles');
@@ -10,22 +10,24 @@ export default class AIAAProbeTool extends ProbeTool {
   constructor(props = {}) {
     const defaultProps = {
       name: 'AIAAProbe',
+      supportedInteractionTypes: ['Mouse'],
       configuration: {
         drawHandles: true,
         handleRadius: 2,
+        eventName: 'nvidiaaiaaprobeevent',
+        color: 'red',
       },
     };
+
     const initialProps = Object.assign(defaultProps, props);
     super(initialProps);
   }
 
   createNewMeasurement(eventData) {
     let res = super.createNewMeasurement(eventData);
-    console.info(res);
-
     if (res) {
-      console.log('TRIGGERING AIAA PROB EVENT');
-      triggerEvent(eventData.element, 'nvidiaaiaaprobeevent', eventData);
+      console.log('TRIGGERING AIAA PROB EVENT: ' + this.configuration.eventName);
+      triggerEvent(eventData.element, this.configuration.eventName, eventData);
     }
     return res;
   }
@@ -47,7 +49,7 @@ export default class AIAAProbeTool extends ProbeTool {
       }
 
       draw(context, context => {
-        const color = toolColors.getColorIfActive(data);
+        const color = this.configuration.color;
         drawHandles(context, eventData, data.handles, {
           handleRadius,
           color,
