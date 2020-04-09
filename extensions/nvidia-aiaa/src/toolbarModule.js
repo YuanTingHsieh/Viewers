@@ -10,6 +10,8 @@ const definitions = [
     label: 'NVIDIA AIAA',
     icon: 'dot-circle',
     type: TOOLBAR_BUTTON_TYPES.SET_TOOL_ACTIVE,
+    commandName: 'setToolActive',
+    commandOptions: { toolName: 'AIAAProbe' },
   },
 ];
 

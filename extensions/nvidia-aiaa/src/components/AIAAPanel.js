@@ -113,6 +113,9 @@ export default class AIAAPanel extends Component {
       deepgrowModels: [],
       session_id: undefined,
     };
+
+    // Register Events...
+    this.addEventListeners();
   }
 
   static getSegmentList(firstImageId) {
@@ -204,7 +207,7 @@ export default class AIAAPanel extends Component {
             deepgrowModels.push(response.data[i]);
           } else {
             console.log(
-              response.data[i].name + ' has unsupported types for this plugin'
+              response.data[i].name + ' has unsupported types for this plugin',
             );
           }
         }
@@ -274,7 +277,7 @@ export default class AIAAPanel extends Component {
 
     console.info(response);
     const { session_id } = response.data;
-    console.info('Session ID: ' + session_id + "; Response Session ID: " + response.data.session_id);
+    console.info('Session ID: ' + session_id + '; Response Session ID: ' + response.data.session_id);
 
     this.setState({
       session_id,
@@ -313,7 +316,7 @@ export default class AIAAPanel extends Component {
     let response = await aiaaClient.segmentation(
       model_name,
       null,
-      session_id
+      session_id,
     );
 
     console.log(response.data);
@@ -324,7 +327,7 @@ export default class AIAAPanel extends Component {
       response.data,
       StudyInstanceUID,
       SeriesInstanceUID,
-      studies
+      studies,
     );
 
     const segmentList = AIAAPanel.getSegmentList(firstImageId);
@@ -342,11 +345,13 @@ export default class AIAAPanel extends Component {
       message: 'AIAA Auto-Segmentation complete!',
       type: 'success',
     });
-  }
+  };
 
-  onClickAnnBtn = () => {};
+  onClickAnnBtn = () => {
+  };
 
-  onClickDeepgrowBtn = () => {};
+  onClickDeepgrowBtn = () => {
+  };
 
   onClickAddSegment = () => {
     console.info('Creating New Segment...');
@@ -488,7 +493,7 @@ export default class AIAAPanel extends Component {
           response.data,
           StudyInstanceUID,
           SeriesInstanceUID,
-          studies
+          studies,
         );
       })
       .then(() => {
@@ -506,6 +511,37 @@ export default class AIAAPanel extends Component {
         // TODO:: How to refresh ViewPort here.. Currently, you have to scroll to different slice to see the mask..
       });
   };
+
+  onClickAddForeGround = (e) => {
+    console.log('value of checkbox : ', e.target.checked);
+  };
+
+  addEventListeners() {
+    this.removeEventListeners();
+
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      enabledElement.addEventListener(
+        'nvidiaaiaaprobeevent',
+        this.cornerstoneEventListenerHandler,
+      );
+    });
+  }
+
+  removeEventListeners() {
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      enabledElement.removeEventListener(
+        'nvidiaaiaaprobeevent',
+        this.cornerstoneEventListenerHandler,
+      );
+    });
+  }
+
+  cornerstoneEventListenerHandler(evt) {
+    // Handle Events
+    console.info('AIAA Probe Evnet: I suppose do something here on every probe...');
+    console.info(evt);
+  }
+
 
   render() {
     console.info('Into render......');
@@ -533,80 +569,80 @@ export default class AIAAPanel extends Component {
         </h4>
         <table>
           <tbody>
-            <tr>
-              <td>
-                <button
-                  className="segButton"
-                  onClick={this.onClickAddSegment}
-                  title="Add Segment"
-                >
-                  <Icon name="plus" width="12px" height="12px" />
-                  Add
-                </button>
-                &nbsp;
-                <button
-                  className="segButton"
-                  onClick={this.onClickDeleteSegments}
-                  id="segDeleteBtn"
-                  title="Delete Selected Segment"
-                >
-                  <Icon name="trash" width="12px" height="12px" />
-                  Remove
-                </button>
-              </td>
-              <td align="right">
-                <button
-                  className="segButton"
-                  onClick={this.onClickReloadSegments}
-                  title={'Reload Segments'}
-                >
-                  <Icon name="reset" width="12px" height="12px" />
-                  Reload
-                </button>
-              </td>
-            </tr>
+          <tr>
+            <td>
+              <button
+                className="segButton"
+                onClick={this.onClickAddSegment}
+                title="Add Segment"
+              >
+                <Icon name="plus" width="12px" height="12px"/>
+                Add
+              </button>
+              &nbsp;
+              <button
+                className="segButton"
+                onClick={this.onClickDeleteSegments}
+                id="segDeleteBtn"
+                title="Delete Selected Segment"
+              >
+                <Icon name="trash" width="12px" height="12px"/>
+                Remove
+              </button>
+            </td>
+            <td align="right">
+              <button
+                className="segButton"
+                onClick={this.onClickReloadSegments}
+                title={'Reload Segments'}
+              >
+                <Icon name="reset" width="12px" height="12px"/>
+                Reload
+              </button>
+            </td>
+          </tr>
           </tbody>
         </table>
 
         <div className="segSection">
           <table className="segTable">
             <thead>
-              <tr>
-                <th width="2%">#</th>
-                <th width="8%">Color</th>
-                <th width="60%">Name</th>
-                <th width="30%">Desc</th>
-              </tr>
+            <tr>
+              <th width="2%">#</th>
+              <th width="8%">Color</th>
+              <th width="60%">Name</th>
+              <th width="30%">Desc</th>
+            </tr>
             </thead>
             <tbody>
-              {segments.map(seg => (
-                <tr key={seg.index}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      name="segitem"
-                      value={seg.index}
-                      onClick={this.onClickSelectSegment}
-                    />
-                  </td>
-                  <td>
-                    <ColoredCircle color={seg.color} />
-                  </td>
-                  <td
-                    className="segEdit"
-                    contentEditable="true"
-                    suppressContentEditableWarning="true"
-                  >
-                    {seg.meta.SegmentLabel}
-                  </td>
-                  <td
-                    contentEditable="true"
-                    suppressContentEditableWarning="true"
-                  >
-                    {seg.meta.SegmentDescription}
-                  </td>
-                </tr>
-              ))}
+            {segments.map(seg => (
+              <tr key={seg.index}>
+                <td>
+                  <input
+                    type="checkbox"
+                    name="segitem"
+                    value={seg.index}
+                    onClick={this.onClickSelectSegment}
+                  />
+                </td>
+                <td>
+                  <ColoredCircle color={seg.color}/>
+                </td>
+                <td
+                  className="segEdit"
+                  contentEditable="true"
+                  suppressContentEditableWarning="true"
+                >
+                  {seg.meta.SegmentLabel}
+                </td>
+                <td
+                  contentEditable="true"
+                  suppressContentEditableWarning="true"
+                >
+                  {seg.meta.SegmentDescription}
+                </td>
+              </tr>
+            ))}
             </tbody>
           </table>
         </div>
@@ -614,47 +650,47 @@ export default class AIAAPanel extends Component {
         <p>&nbsp;</p>
         <table className="aiaaTable">
           <tbody>
-            <tr>
-              <td colSpan="3">AIAA server URL:</td>
-            </tr>
-            <tr>
-              <td width="80%">
-                <input
-                  className="aiaaInput"
-                  name="aiaaServerURL"
-                  type="text"
-                  defaultValue={aiaaServerURL}
-                  onBlur={this.onBlurSeverURL}
-                />
-              </td>
-              <td width="2%">&nbsp;</td>
-              <td width="18%">
-                <button className="aiaaButton" onClick={this.onClickModels}>
-                  <Icon name="reset" width="16px" height="16px" />
-                </button>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan="3">
-                <a
-                  href={aiaaServerURL + 'v1/models'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  All models
-                </a>
+          <tr>
+            <td colSpan="3">AIAA server URL:</td>
+          </tr>
+          <tr>
+            <td width="80%">
+              <input
+                className="aiaaInput"
+                name="aiaaServerURL"
+                type="text"
+                defaultValue={aiaaServerURL}
+                onBlur={this.onBlurSeverURL}
+              />
+            </td>
+            <td width="2%">&nbsp;</td>
+            <td width="18%">
+              <button className="aiaaButton" onClick={this.onClickModels}>
+                <Icon name="reset" width="16px" height="16px"/>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td colSpan="3">
+              <a
+                href={aiaaServerURL + 'v1/models'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                All models
+              </a>
 
-                <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
+              <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
-                <a
-                  href={aiaaServerURL + 'logs?lines=100'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  AIAA Logs
-                </a>
-              </td>
-            </tr>
+              <a
+                href={aiaaServerURL + 'logs?lines=100'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                AIAA Logs
+              </a>
+            </td>
+          </tr>
           </tbody>
         </table>
 
@@ -664,7 +700,6 @@ export default class AIAAPanel extends Component {
               type="radio"
               name="css-tabs"
               id="tab-1"
-              defaultChecked
               className="tab-switch"
             />
             <label htmlFor="tab-1" className="tab-label">
@@ -725,6 +760,7 @@ export default class AIAAPanel extends Component {
               name="css-tabs"
               id="tab-3"
               className="tab-switch"
+              defaultChecked
             />
             <label htmlFor="tab-3" className="tab-label">
               DeepGrow
@@ -741,8 +777,16 @@ export default class AIAAPanel extends Component {
                       You can use deepgrow model to annotate <b>any organ</b>.
                     </p>
                     <p>
-                      <b>Right click</b> to add <i>foreground points</i> or{' '}
-                      <b>Left click</b> to add <i>background points</i>.
+                      <label>
+                        <input id='btnAddForeGround' type="checkbox" onChange={this.onClickAddForeGround}/>
+                        add <i>foreground points</i>
+                      </label>
+                    </p>
+                    <p>
+                      <label>
+                        <input id='btnAddBackGround' type="checkbox" onChange={this.onClickAddForeGround}/>
+                        add <i>background points</i>
+                      </label>
                     </p>
                   </div>
                 }
