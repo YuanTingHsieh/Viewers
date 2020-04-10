@@ -428,7 +428,11 @@ export default class AIAAPanel extends Component {
     return labelmap3D;
   }
 
-  onClickAddSegment = () => {
+  updateSegement(name, labelmapBuffer) {
+    // TODO:: Challenging task.. update the name, labelmapBuffer etc...
+  }
+
+    onClickAddSegment = () => {
     const labelmap3D = this.createSegment('label-1');
     const { segments, activeSegmentIndex } = getSegmentList(this.state.firstImageId);
 
@@ -452,6 +456,9 @@ export default class AIAAPanel extends Component {
 
   onClickDeleteSegments = () => {
     console.info('Deleting Segment(s)...');
+    // TODO:: Erase LabelMap for this segment... hmmm... another challenging task..
+    //   (explore: drawBrushPixels kind of utils from SegmentationUtils)
+    //   https://github.com/cornerstonejs/cornerstoneTools/tree/master/src/util/segmentation
 
     let segItems = [];
     let checkboxes = document.querySelectorAll('input[name=segitem]:checked');
@@ -592,12 +599,14 @@ export default class AIAAPanel extends Component {
     const pointerArray = getCircle(100, rows, columns, x, y);
     console.info('Draw Some Brush Pixels ...... ');
 
+    // TODO:: Get PixelArray for current slice from nifti result and paste it here.. should be easy
+    const shouldErase = false;
     drawBrushPixels(
       pointerArray,
       labelmap2D.pixelData,
       labelmap3D.activeSegmentIndex,
       columns,
-      false,
+      shouldErase,
     );
 
     cornerstone.updateImage(element);
@@ -621,6 +630,8 @@ export default class AIAAPanel extends Component {
     console.info(aiaaServerURL);
     console.info(firstImageId);
     console.info('Total Segments: ' + segments.length);
+
+    // TODO:: Access more settings values into AIAAPanel...
 
     return (
       <div className="aiaaPanel">
