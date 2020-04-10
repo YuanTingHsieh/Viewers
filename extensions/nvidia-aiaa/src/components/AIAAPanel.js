@@ -12,13 +12,14 @@ import AIAATable from './AIAATable';
 import axios from 'axios';
 import cornerstone from 'cornerstone-core';
 import loadDicomSeg from '../loadDicomSeg';
-import nifti from 'nifti-reader-js';
 import {
   getElementFromFirstImageId,
   getImageIdsForDisplaySet,
   getNextLabelmapIndex,
   getSegmentList,
 } from '../utils/genericUtils';
+import NIFTIReader from '../utils/NIFTIReader';
+import nrrd from 'nrrd-js';
 
 const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
 const { drawBrushPixels, getCircle } = segmentationUtils;
@@ -483,77 +484,56 @@ export default class AIAAPanel extends Component {
 
     metadata.data = newData;
     labelmap3D.activeSegmentIndex = metadata.data.length > 0 ? 1 : 0;
+    this.refreshSegTable();
+  };
 
-    const segmentList = getSegmentList(firstImageId);
-    const segments = segmentList.segments;
-    const activeSegmentIndex = segmentList.activeSegmentIndex;
-
+  refreshSegTable(updateImage = true) {
+    const segmentList = getSegmentList(this.state.firstImageId);
+    const { segments, activeSegmentIndex, labelmap3D } = segmentList;
     this.setState({
       segments,
       activeSegmentIndex,
       labelmap3D,
     });
+
+    if (updateImage) {
+      const element = getElementFromFirstImageId(this.state.firstImageId);
+      cornerstone.updateImage(element);
+    }
+  }
+
+  loadNrrdData = async () => {
+    console.info('Reload Segments (NRRD)....');
+    let url = 'http://10.110.46.111:8002/spleen_Liver1.nrrd';
+    var response = await axios.get(url, { responseType: 'arraybuffer' });
+
+    var data = nrrd.parse(response.data);
+    console.log(data);
+    return data.buffer;
   };
 
   loadNiftiData = async () => {
     console.info('Reload Segments....');
-    //let url = 'http://10.110.46.111:8002/DICOM/DDE0450D/093970D7/1E223919';
-    //let url = 'http://10.110.46.111:8002/liver.dcm';
-    let url = 'http://10.110.46.111:8002/spleen_dicom_output.nii';
-    var niftiHeader = null;
-    var niftiImage = null;
-    var niftiExt = null;
-
+    let url = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
     var response = await axios.get(url, { responseType: 'arraybuffer' });
-    console.log(response.data);
-    console.log(response.status);
-    console.log(response.statusText);
 
-    var data = response.data; // an ArrayBuffer
-    if (nifti.isCompressed(data)) {
-      data = nifti.decompress(data);
-    }
-
-    if (nifti.isNIFTI(data)) {
-      niftiHeader = nifti.readHeader(data);
-      niftiImage = nifti.readImage(niftiHeader, data);
-      if (nifti.hasExtension(niftiHeader)) {
-        niftiExt = nifti.readExtensionData(niftiHeader, data);
-      }
-    }
-
-    console.info('NIFTI Header');
-    console.info(niftiHeader.toFormattedString());
-
-    console.info('NIFTI Image');
-    console.info(niftiImage);
-
-    console.info('NIFTI EXT');
-    console.info(niftiExt);
-
-    return {
-      header: niftiHeader,
-      image: niftiImage,
-      ext: niftiExt,
-    };
+    const niftiReader = new NIFTIReader();
+    const { pixelData } = niftiReader.read(response.data);
+    return pixelData;
   };
 
   onClickReloadSegments = async () => {
-    const resp = await this.loadNiftiData();
-    console.log(resp);
+    const pixelData = await this.loadNiftiData();
 
-    this.createSegment('label-1', resp.image);
+    console.info('Trying to create a segment with image input...');
+    this.createSegment('label-1', pixelData);
 
-    const { segments, activeSegmentIndex, labelmap3D } = getSegmentList(this.state.firstImageId);
-    this.setState({
-      segments,
-      activeSegmentIndex,
-      labelmap3D,
-    });
+    console.info('Finished create a segment with image input...');
+    this.refreshSegTable();
   };
 
   onClickAddForeGround = (e) => {
-    console.log('value of checkbox : ', e.target.checked);
+    console.info('value of checkbox : ', e.target.checked);
     if (e.target.checked) {
       this.addEventListeners();
 
@@ -561,7 +541,7 @@ export default class AIAAPanel extends Component {
       //const apiTool = cornerstoneTools[`${toolName}Tool`];
       //cornerstoneTools.addTool(apiTool);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
-      console.log('Activated the tool...');
+      console.info('Activated the tool...');
     } else {
       this.removeEventListeners();
     }
@@ -609,7 +589,7 @@ export default class AIAAPanel extends Component {
     const labelmap3D = labelmapData.labelmap3D;
     const labelmap2D = labelmapData.labelmap2D;
 
-    const pointerArray = getCircle(30, rows, columns, x, y);
+    const pointerArray = getCircle(100, rows, columns, x, y);
     console.info('Draw Some Brush Pixels ...... ');
 
     drawBrushPixels(

@@ -44,6 +44,7 @@ export default async function loadDicomSeg(
   const labelmapIndex = getNextLabelmapIndex(firstImageId);
   console.info('labelmapIndex = ' + labelmapIndex);
   console.info(segMetadata);
+  console.info(segmentsOnFrame);
 
   setters.labelmap3DByFirstImageId(
     firstImageId,

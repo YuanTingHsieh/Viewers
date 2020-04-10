@@ -54,7 +54,8 @@
     "arraybuffer-concat": "0.0.1",
     "ndarray": "^1.0.19",
     "nifti-reader-js": "^0.5.4",
-    "md5.js": "^1.3.5"
+    "md5.js": "^1.3.5",
+    "nrrd-js": "^0.2.1"
   },
   "devDependencies": {
     "@ohif/core": "^2.5.0",
