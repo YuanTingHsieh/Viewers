@@ -157,7 +157,7 @@ export default class AIAAPanel extends Component {
       deepgrowModels: [],
     };
 
-    //this.onClickModels();
+    this.onClickModels();
   }
 
   onBlurSeverURL = evt => {
@@ -432,7 +432,7 @@ export default class AIAAPanel extends Component {
     // TODO:: Challenging task.. update the name, labelmapBuffer etc...
   }
 
-    onClickAddSegment = () => {
+  onClickAddSegment = () => {
     const labelmap3D = this.createSegment('label-1');
     const { segments, activeSegmentIndex } = getSegmentList(this.state.firstImageId);
 

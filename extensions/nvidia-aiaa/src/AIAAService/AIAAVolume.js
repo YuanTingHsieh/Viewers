@@ -37,7 +37,7 @@ export default class AIAAVolume {
 
     console.info(studies);
     const study = studies.find(
-      study => study.StudyInstanceUID === StudyInstanceUID
+      study => study.StudyInstanceUID === StudyInstanceUID,
     );
     console.info(study.displaySets);
 
@@ -47,7 +47,7 @@ export default class AIAAVolume {
 
     if (displaySets.length > 1) {
       console.warn(
-        'More than one display set with the same SeriesInstanceUID. This is not supported yet...'
+        'More than one display set with the same SeriesInstanceUID. This is not supported yet...',
       );
     }
 
@@ -182,7 +182,7 @@ export default class AIAAVolume {
       resolution,
       this.metadata.imagePositionPatient,
       this.metadata.slope,
-      this.metadata.intercept
+      this.metadata.intercept,
     );
     if (debug) {
       this.downloadNiiArrLocally(niiArray);
@@ -213,7 +213,7 @@ export default class AIAAVolume {
     resolution,
     imagePositionPatient,
     slope = 1,
-    intercept = 0
+    intercept = 0,
   ) => {
     let buffer = new ArrayBuffer(352); //header of the nifty file 352 bytes for any nifti
     for (let i = 0; i < buffer.byteLength; ++i) {

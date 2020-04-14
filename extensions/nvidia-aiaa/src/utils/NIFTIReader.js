@@ -35,7 +35,9 @@ export default class NIFTIReader {
   static getPixelData(niftiHeader, niftiImage) {
     var typedData = niftiImage;
 
+    // TODO:: Better way to convert data.. any such conversions is too time consuming to load in labelMapBuffer
     console.info('NIFTI HEADER => datatypeCode: ' + niftiHeader.datatypeCode);
+
     if (niftiHeader.datatypeCode === nifti.NIFTI1.TYPE_UINT8) {
       typedData = new Uint8Array(niftiImage);
     } else if (niftiHeader.datatypeCode === nifti.NIFTI1.TYPE_INT16) {

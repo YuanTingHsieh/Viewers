@@ -40,37 +40,37 @@ export default class AIAATable extends Component {
       <div>
         <table className="aiaaTable">
           <tbody>
-            <tr>
-              <td colSpan="3">{this.props.title}</td>
-            </tr>
-            <tr>
-              <td width="80%">
-                <select
-                  className="aiaaDropDown"
-                  onChange={this.onChangeModel}
-                  value={this.state.currModel}
-                >
-                  <option key="default" value="" aiaalabel=""></option>
-                  {this.props.models.map(model => (
-                    <option
-                      key={model.name}
-                      value={model.name}
-                      aiaalabel={model.labels}
-                    >{`${model.name} `}</option>
-                  ))}
-                </select>
-              </td>
-              <td width="2%">&nbsp;</td>
-              <td width="18%">
-                <button
-                  className="aiaaButton"
-                  onClick={this.onClickBtn}
-                  title="Run Action"
-                >
-                  <Icon name="brain" width="16px" height="16px" />
-                </button>
-              </td>
-            </tr>
+          <tr>
+            <td colSpan="3">{this.props.title}</td>
+          </tr>
+          <tr>
+            <td width="80%">
+              <select
+                className="aiaaDropDown"
+                onChange={this.onChangeModel}
+                value={this.state.currModel}
+              >
+                <option key="default" value="" aiaalabel=""></option>
+                {this.props.models.map(model => (
+                  <option
+                    key={model.name}
+                    value={model.name}
+                    aiaalabel={model.labels}
+                  >{`${model.name} `}</option>
+                ))}
+              </select>
+            </td>
+            <td width="2%">&nbsp;</td>
+            <td width="18%">
+              <button
+                className="aiaaButton"
+                onClick={this.onClickBtn}
+                title="Run Action"
+              >
+                <Icon name="brain" width="16px" height="16px"/>
+              </button>
+            </td>
+          </tr>
           </tbody>
         </table>
         {this.props.usage}

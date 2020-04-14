@@ -15,7 +15,7 @@ function _setCookie(name, value, exp_y, exp_m, exp_d, path, domain, secure) {
 
 function _getCookie(cookie_name) {
   let results = document.cookie.match(
-    '(^|;) ?' + cookie_name + '=([^;]*)(;|$)'
+    '(^|;) ?' + cookie_name + '=([^;]*)(;|$)',
   );
   if (results) return unescape(results[2]);
   else return null;
@@ -121,7 +121,7 @@ export default class AIAAUtils {
       exp_d,
       path,
       domain,
-      secure
+      secure,
     );
   }
 

@@ -18,7 +18,7 @@ const OHIFDicomSegSopClassHandler = {
     series,
     study,
     dicomWebClient,
-    authorizationHeaders
+    authorizationHeaders,
   ) {
     const instance = series.getFirstInstance();
     const metadata = instance.getData().metadata;
@@ -57,7 +57,7 @@ const OHIFDicomSegSopClassHandler = {
       return loadSegmentation(
         segDisplaySet,
         referencedDisplaySet,
-        studies
+        studies,
       ).catch(error => {
         segDisplaySet.isLoaded = false;
         throw new Error(error);
