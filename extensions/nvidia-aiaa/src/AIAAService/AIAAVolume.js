@@ -32,28 +32,25 @@ export default class AIAAVolume {
   };
 
   createDicomData = async (studies, StudyInstanceUID, SeriesInstanceUID) => {
-    console.info('About to load the dicom here...');
-    console.log('createDataVol this takes some time .......');
+    console.info('createDicomData this takes some time .......');
 
-    console.info(studies);
+    console.debug(studies);
     const study = studies.find(
       study => study.StudyInstanceUID === StudyInstanceUID,
     );
-    console.info(study.displaySets);
+    console.debug(study.displaySets);
 
     const displaySets = study.displaySets.filter(displaySet => {
       return displaySet.SeriesInstanceUID === SeriesInstanceUID;
     });
 
     if (displaySets.length > 1) {
-      console.warn(
-        'More than one display set with the same SeriesInstanceUID. This is not supported yet...',
-      );
+      console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
     }
 
     const d = displaySets[0];
-    console.info('ImageSet..............');
-    console.info(d);
+    console.debug('ImageSet..............');
+    console.debug(d);
 
     // TODO:: Remove this hack; Instead of fetching it again, get it from imageCache
     let n = {
@@ -93,18 +90,18 @@ export default class AIAAVolume {
       imagesBuffers.push({ data: image_in, name: 'image_' + i + '.dcm' });
     }
 
-    console.info(imagesBuffers);
+    console.debug(imagesBuffers);
     return imagesBuffers;
   };
 
   createNiftiData = async () => {
-    console.log('createNiftiData starts.......');
+    console.info('createNiftiData this takes some time .......');
 
     // TODO: How to get correct stackState here
     let elements = cornerstone.getEnabledElements();
     const element = elements[0].element;
     const stackState = cornerstoneTools.getToolState(element, 'stack');
-    console.log(stackState);
+    console.debug(stackState);
 
     // all of the image ids
     const imageIds = stackState.data[0].imageIds;
@@ -117,8 +114,8 @@ export default class AIAAVolume {
       const images = await Promise.all(loadImagePromises);
       let firstImage = images[0];
 
-      console.log('First image is ');
-      console.log(firstImage);
+      console.debug('First image is ');
+      console.debug(firstImage);
       this.metadata.slope = firstImage.slope;
       this.metadata.intercept = firstImage.intercept;
       this.metadata.rows = firstImage.rows;
@@ -130,7 +127,7 @@ export default class AIAAVolume {
       this.metadata.sliceThickness = firstImage.sliceThickness;
       if (this.metadata.sliceThickness === undefined) {
         this.metadata.sliceThickness = 1;
-        console.log('Data error, no slice thickness in metadata!');
+        console.debug('Data error, no slice thickness in metadata!');
       }
 
       // TODO (Yuan-Ting): How to get correct image position patient from OHIF?
@@ -141,7 +138,7 @@ export default class AIAAVolume {
           y: 0,
           z: 0,
         };
-        console.log('Data error, no imagePositionPatient in metadata!');
+        console.debug('Data error, no imagePositionPatient in metadata!');
       }
 
       const x = this.metadata.columns;
@@ -157,10 +154,10 @@ export default class AIAAVolume {
           // a[i*x*y+j]=slPix[x*y-j-1];
         }
       }
-      console.log('createDataVol completed .......');
+      console.debug('createDataVol completed .......');
       return a;
     } catch (error) {
-      console.log('Error in createDataVol ' + error);
+      console.error('Error in createDataVol ' + error);
     }
   };
 
@@ -287,7 +284,6 @@ export default class AIAAVolume {
     magic[3] = 0;
 
     let result = arrayBufferConcat(buffer, dst_array.data);
-
     return result;
   };
 }

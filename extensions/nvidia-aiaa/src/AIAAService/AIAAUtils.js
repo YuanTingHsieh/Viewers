@@ -42,12 +42,12 @@ function constructFormOrJsonData(params, file) {
 
 export default class AIAAUtils {
   static api_get(url) {
-    console.log('AIAAUtils - GET:: ' + url);
+    console.info('AIAAUtils - GET:: ' + url);
     return axios
       .get(url)
       .then(function(response) {
         // handle success
-        console.log(response);
+        console.info(response);
         return response;
       })
       .catch(function(error) {
@@ -61,7 +61,7 @@ export default class AIAAUtils {
   }
 
   static api_post_file(url, params, file) {
-    console.log('AIAAUtils - POST:: ' + url);
+    console.info('AIAAUtils - POST:: ' + url);
     let formData = constructFormData(params, file);
     return axios
       .post(url, formData, {
@@ -74,7 +74,7 @@ export default class AIAAUtils {
       })
       .then(function(response) {
         // handle success
-        console.log(response);
+        console.info(response);
         return response;
       })
       .catch(function(error) {
@@ -88,7 +88,7 @@ export default class AIAAUtils {
   }
 
   static api_put(url, params, file) {
-    console.log('AIAAUtils - PUT:: ' + url);
+    console.info('AIAAUtils - PUT:: ' + url);
     let data = constructFormOrJsonData(params, file);
     return axios
       .put(url, data, {
@@ -100,7 +100,7 @@ export default class AIAAUtils {
       })
       .then(function(response) {
         // handle success
-        console.log(response);
+        console.info(response);
         return response;
       })
       .catch(function(error) {

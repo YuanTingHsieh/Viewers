@@ -175,54 +175,47 @@ export default class AIAAPanel extends Component {
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', value);
   };
 
-  onClickModels = () => {
+  onClickModels = async () => {
     let segModels = [];
     let annModels = [];
     let deepgrowModels = [];
 
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-    aiaaClient
-      .model_list()
-      .then(response => {
-        console.log(response);
-
-        for (let i = 0; i < response.data.length; ++i) {
-          if (response.data[i].type === 'annotation') {
-            annModels.push(response.data[i]);
-          } else if (response.data[i].type === 'segmentation') {
-            segModels.push(response.data[i]);
-          } else if (response.data[i].type === 'deepgrow') {
-            deepgrowModels.push(response.data[i]);
-          } else {
-            console.log(
-              response.data[i].name + ' has unsupported types for this plugin',
-            );
-          }
-        }
-      })
-      .then(() => {
-        this.setState({
-          segModels: segModels,
-          annModels: annModels,
-          deepgrowModels: deepgrowModels,
-        });
-        this.notification.show({
-          title: 'NVIDIA AIAA',
-          message: 'Fetched AIAA models complete!',
-          type: 'success',
-          duration: 2000,
-        });
-
-        // TODO:: Check + Create AIAA Session if required
-        // this.setState({sessionId: sessionId})
-      })
-      .catch(error => {
-        this.notification.show({
-          title: 'NVIDIA AIAA',
-          message: 'Fetched AIAA models failed!' + error,
-          type: 'error',
-        });
+    let response = await aiaaClient.model_list();
+    if (response.status !== 200) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to Create AIAA Session...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
       });
+      return;
+    }
+
+    for (let i = 0; i < response.data.length; ++i) {
+      if (response.data[i].type === 'annotation') {
+        annModels.push(response.data[i]);
+      } else if (response.data[i].type === 'segmentation') {
+        segModels.push(response.data[i]);
+      } else if (response.data[i].type === 'deepgrow') {
+        deepgrowModels.push(response.data[i]);
+      } else {
+        console.warn(response.data[i].name + ' has unsupported types for this plugin');
+      }
+    }
+
+    this.setState({
+      segModels: segModels,
+      annModels: annModels,
+      deepgrowModels: deepgrowModels,
+    });
+
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Fetched AIAA models complete!',
+      type: 'success',
+      duration: 2000,
+    });
   };
 
   getAIAASessionCookieID() {
@@ -236,20 +229,20 @@ export default class AIAAPanel extends Component {
     const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
     const cookieId = this.getAIAASessionCookieID();
-    console.info('Using cookieId: ' + cookieId);
+    console.debug('Using cookieId: ' + cookieId);
 
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
     var c_session_id = AIAAUtils.getAIAACookie(cookieId);
-    console.info('Session ID from COOKIE: ' + c_session_id);
+    console.debug('Session ID from COOKIE: ' + c_session_id);
 
     if (c_session_id) {
       const response = await aiaaClient.getSession(c_session_id);
-      console.info('Is session valid (200 OK)?? => ' + response.status);
+      console.debug('Is session valid (200 OK)?? => ' + response.status);
       if (response.status === 200) {
         return c_session_id;
       }
 
-      console.info('Invalidate session (as it might have got expired)');
+      console.debug('Invalidate session (as it might have got expired)');
     }
 
     // Method 1
@@ -268,34 +261,40 @@ export default class AIAAPanel extends Component {
         StudyInstanceUID,
         SeriesInstanceUID,
       );
-      console.log('data preparation complete');
+      console.debug('data preparation complete');
 
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'AIAA Data preparation complete!',
         type: 'success',
       });
-
       response = await aiaaClient.createSession(volumes, null);
     }
 
-    console.info(response);
-    const { session_id } = response.data;
-    console.info('Session ID: ' + session_id + '; Response Session ID: ' + response.data.session_id);
+    if (response.status !== 200) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to Create AIAA Session...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
+      });
+      return null;
+    }
 
+    const { session_id } = response.data;
     this.notification.show({
       title: 'NVIDIA AIAA',
       message: 'AIAA Session create success!',
       type: 'success',
     });
 
-    console.log('Finishing creating session');
+    console.debug('Finishing creating session');
     AIAAUtils.setAIAACookie(cookieId, session_id);
     return session_id;
   };
 
   onClickSegBtn = async model_name => {
-    console.info('On Click Segmentation: ' + model_name);
+    console.debug('On Click Segmentation: ' + model_name);
 
     if (!model_name) {
       this.notification.show({
@@ -313,7 +312,10 @@ export default class AIAAPanel extends Component {
     // Wait for AIAA session
     // TODO:: Disable the button (avoid double click)
     const session_id = await this.onCreateOrGetAiaaSession(true);
-    console.info('Using AIAA Session: ' + session_id);
+    console.debug('Using AIAA Session: ' + session_id);
+    if (!session_id) {
+      return;
+    }
 
     this.notification.show({
       title: 'NVIDIA AIAA',
@@ -329,12 +331,6 @@ export default class AIAAPanel extends Component {
     );
 
     if (response.status !== 200) {
-      if (response.status === 440) {
-        const cookieId = this.getAIAASessionCookieID();
-        console.info('Reset cookieId: ' + cookieId);
-        AIAAUtils.setAIAACookie(cookieId, '');
-      }
-
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Failed to Run Auto-Segmentation...\nReason: ' + response.data,
@@ -343,10 +339,6 @@ export default class AIAAPanel extends Component {
       });
       return;
     }
-
-    console.log(response.data);
-    console.log(response.status);
-    console.log(response.statusText);
 
     await loadDicomSeg(
       response.data,
@@ -391,12 +383,15 @@ export default class AIAAPanel extends Component {
     // Wait for AIAA session
     const session_id = await this.onCreateOrGetAiaaSession(true);
     console.info('Using AIAA Session: ' + session_id);
+    if (!session_id) {
+      return;
+    }
 
     this.notification.show({
       title: 'NVIDIA AIAA',
       message: 'Running AIAA Deepgrow...',
       type: 'info',
-      duration: 10000,
+      duration: 2000,
     });
 
     let response = await aiaaClient.deepgrow(
@@ -408,12 +403,6 @@ export default class AIAAPanel extends Component {
     );
 
     if (response.status !== 200) {
-      if (response.status === 440) {
-        const cookieId = this.getAIAASessionCookieID();
-        console.info('Reset cookieId: ' + cookieId);
-        AIAAUtils.setAIAACookie(cookieId, '');
-      }
-
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Failed to Run Deepgrow...\nReason: ' + response.data,
@@ -422,10 +411,6 @@ export default class AIAAPanel extends Component {
       });
       return;
     }
-
-    console.log(response.data);
-    console.log(response.status);
-    console.log(response.statusText);
 
     await loadDicomSeg(
       response.data,
@@ -444,18 +429,13 @@ export default class AIAAPanel extends Component {
       activeSegmentIndex,
       labelmap3D,
     });
-    this.notification.show({
-      title: 'NVIDIA AIAA',
-      message: 'AIAA Auto-Segmentation complete!',
-      type: 'success',
-    });
 
     const element = getElementFromFirstImageId(firstImageId);
     cornerstone.updateImage(element);
   };
 
   createSegment(name, labelmapBuffer) {
-    console.info('Creating New Segment...');
+    console.debug('Creating New Segment...');
 
     let { labelmap3D, firstImageId, SeriesInstanceUID } = this.state;
 
@@ -473,11 +453,11 @@ export default class AIAAPanel extends Component {
       SegmentAlgorithmName: 'CNN',
     };
 
-    console.info('newMetadata.....');
-    console.info(newMetadata);
+    console.debug('newMetadata.....');
+    console.debug(newMetadata);
 
     if (labelmap3D) {
-      console.info('Label Map is NOT NULL');
+      console.debug('Label Map is NOT NULL');
       const { metadata } = labelmap3D;
 
       let ids = [0];
@@ -485,8 +465,8 @@ export default class AIAAPanel extends Component {
         ids.push(labelmap3D.metadata.data[i].SegmentNumber);
       }
       let maxSegmentId = Math.max.apply(Math, ids);
-      console.info('Current Segments: ' + ids);
-      console.info('Max Segment: ' + maxSegmentId);
+      console.debug('Current Segments: ' + ids);
+      console.debug('Max Segment: ' + maxSegmentId);
 
       newMetadata.SegmentNumber = maxSegmentId + 1;
       newMetadata.SegmentLabel = 'label_' + newMetadata.SegmentNumber;
@@ -494,7 +474,7 @@ export default class AIAAPanel extends Component {
 
       labelmap3D.activeSegmentIndex = metadata.data.length - 1;
     } else {
-      console.info('Label Map is NULL');
+      console.debug('Label Map is NULL');
       const element = getElementFromFirstImageId(firstImageId);
       const segmentationModule = cornerstoneTools.getModule('segmentation');
       const labelmapData = segmentationModule.getters.labelmap2D(element);
@@ -558,7 +538,7 @@ export default class AIAAPanel extends Component {
   };
 
   onClickDeleteSegments = () => {
-    console.info('Deleting Segment(s)...');
+    console.debug('Deleting Segment(s)...');
     // TODO:: Erase LabelMap for this segment... hmmm... another challenging task..
     //   (explore: drawBrushPixels kind of utils from SegmentationUtils)
     //   https://github.com/cornerstonejs/cornerstoneTools/tree/master/src/util/segmentation
@@ -568,15 +548,15 @@ export default class AIAAPanel extends Component {
     for (let i = 0; i < checkboxes.length; i++) {
       segItems.push(parseInt(checkboxes[i].value));
     }
-    console.info('Delete segments: ' + segItems);
+    console.debug('Delete segments: ' + segItems);
     if (!segItems.length) {
-      console.info('no items selected...');
+      console.debug('no items selected...');
       return;
     }
 
     let { firstImageId, labelmap3D } = this.state;
     if (!labelmap3D) {
-      console.info('Label Map is NULL');
+      console.debug('Label Map is NULL');
       return;
     }
 
@@ -585,10 +565,10 @@ export default class AIAAPanel extends Component {
     for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
       const meta = labelmap3D.metadata.data[i];
       if (!segItems.includes(meta.SegmentNumber)) {
-        console.info('Keeping segment: ' + meta.SegmentNumber);
+        console.debug('Keeping segment: ' + meta.SegmentNumber);
         newData.push(meta);
       } else {
-        console.info('Removing segment: ' + meta.SegmentNumber);
+        console.debug('Removing segment: ' + meta.SegmentNumber);
       }
     }
 
@@ -613,7 +593,7 @@ export default class AIAAPanel extends Component {
   }
 
   loadNrrdData = async () => {
-    console.info('Reload Segments (NRRD)....');
+    console.debug('Reload Segments (NRRD)....');
     let url = 'http://10.110.46.111:8002/spleen_Liver1.nrrd';
     var response = await axios.get(url, { responseType: 'arraybuffer' });
 
@@ -623,7 +603,7 @@ export default class AIAAPanel extends Component {
   };
 
   loadNiftiData = async () => {
-    console.info('Reload Segments....');
+    console.debug('Reload Segments....');
     let url = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
     var response = await axios.get(url, { responseType: 'arraybuffer' });
 
@@ -635,15 +615,15 @@ export default class AIAAPanel extends Component {
   onClickReloadSegments = async () => {
     const pixelData = await this.loadNiftiData();
 
-    console.info('Trying to create a segment with image input...');
+    console.debug('Trying to create a segment with image input...');
     this.createSegment('label-1', pixelData);
 
-    console.info('Finished create a segment with image input...');
+    console.debug('Finished create a segment with image input...');
     this.refreshSegTable();
   };
 
   onClickAddForeGround = (e) => {
-    console.info('value of checkbox : ', e.target.checked);
+    console.debug('value of checkbox : ', e.target.checked);
     if (e.target.checked) {
       this.addEventListeners();
 
@@ -651,7 +631,7 @@ export default class AIAAPanel extends Component {
       //const apiTool = cornerstoneTools[`${toolName}Tool`];
       //cornerstoneTools.addTool(apiTool);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
-      console.info('Activated the tool...');
+      console.debug('Activated the tool...');
     } else {
       this.removeEventListeners();
     }
@@ -678,23 +658,15 @@ export default class AIAAPanel extends Component {
   }
 
   deepgrowClickEventHandler(evt) {
-    console.info('I suppose do something here on every probe...');
     const eventData = evt.detail;
-    console.info(eventData);
+    console.debug(eventData);
 
     const { x, y } = eventData.currentPoints.image;
-    console.info('X: ' + x + '; Y: ' + y);
-
-    const element = eventData.element;
-    console.info(element);
-
-    const { imageId, rows, columns } = eventData.image;
-    console.info('ImageId: ' + imageId);
-    console.info('rows: ' + rows + '; columns: ' + columns);
-
-    console.info(this.state);
+    const { imageId } = eventData.image;
     const z = this.state.imageIdsToIndex.get(imageId);
-    console.info('Z: ' + z);
+
+    console.debug('ImageId: ' + imageId);
+    console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
 
     const model_name = 'deepgrow_2d';
     const foreground = [[x, y, z]];
@@ -727,8 +699,8 @@ export default class AIAAPanel extends Component {
 
 
   render() {
-    console.info('Into render......');
-    console.info(this.state);
+    console.debug('Into render......');
+    console.debug(this.state);
 
     const {
       aiaaServerURL,
@@ -740,9 +712,9 @@ export default class AIAAPanel extends Component {
       deepgrowModels,
     } = this.state;
 
-    console.info(aiaaServerURL);
-    console.info(firstImageId);
-    console.info('Total Segments: ' + segments.length);
+    console.debug(aiaaServerURL);
+    console.debug(firstImageId);
+    console.debug('Total Segments: ' + segments.length);
 
     // TODO:: Access more settings values into AIAAPanel...
 

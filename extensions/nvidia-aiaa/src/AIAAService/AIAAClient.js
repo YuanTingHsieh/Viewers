@@ -30,7 +30,7 @@ export default class AIAAClient {
    * @param {string} label
    */
   async model_list(model_name = undefined, label = undefined) {
-    console.log('AIAA fetching models');
+    console.info('AIAA fetching models');
     let model_url = new URL('/v1/models', this.server_url);
     if (model_name !== undefined)
       model_url.searchParams.append('model', model_name);
@@ -62,7 +62,7 @@ export default class AIAAClient {
    *
    */
   async createSession(image_in, params, expiry = 0) {
-    console.log('AIAAClient - create session');
+    console.info('AIAAClient - create session');
     let session_url = new URL('/session/', this.server_url);
     session_url.searchParams.append('expiry', expiry);
     return await AIAAUtils.api_put(session_url.toString(), params, image_in);
@@ -78,7 +78,7 @@ export default class AIAAClient {
    *
    */
   async getSession(session_id, update_ts = false) {
-    console.log('AIAAClient - get session');
+    console.info('AIAAClient - get session');
     let session_url = new URL('/session/' + session_id, this.server_url);
     if (update_ts) {
       session_url.searchParams.append('update_ts', update_ts);
@@ -102,7 +102,7 @@ export default class AIAAClient {
   }
 
   async inference(api, model_name, params, image_in, session_id = undefined) {
-    console.log('AIAAClient - calling ' + api);
+    console.info('AIAAClient - calling ' + api);
     let seg_url = new URL('/v1/' + api, this.server_url);
     seg_url.searchParams.append('model', model_name);
 

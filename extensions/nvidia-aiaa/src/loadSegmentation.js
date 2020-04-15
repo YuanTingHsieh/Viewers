@@ -17,14 +17,14 @@ export default async function loadSegmentation(
   // If this function throws its set back to false.
   segDisplaySet.isLoaded = true;
 
-  console.info('About to load the dicom seg here...');
+  console.debug('About to load the dicom seg here...');
   const segArrayBuffer = await DicomLoaderService.findDicomDataPromise(
     segDisplaySet,
     studies,
   );
 
-  console.info('Reading DICOM seg done...');
-  console.info(segArrayBuffer);
+  console.debug('Reading DICOM seg done...');
+  console.debug(segArrayBuffer);
 
   const dicomData = dcmjs.data.DicomMessage.readFile(segArrayBuffer);
   const dataset = dcmjs.data.DicomMetaDictionary.naturalizeDataset(dicomData.dict);
@@ -36,8 +36,8 @@ export default async function loadSegmentation(
     referencedDisplaySet.SeriesInstanceUID,
   );
 
-  console.info('Fetching All Images for SEG');
-  console.info(imageIds);
+  console.debug('Fetching All Images for SEG');
+  console.debug(imageIds);
 
   const results = _parseSeg(segArrayBuffer, imageIds);
   if (!results) {

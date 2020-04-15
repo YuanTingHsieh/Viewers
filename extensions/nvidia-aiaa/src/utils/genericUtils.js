@@ -48,7 +48,7 @@ function getNextLabelmapIndex(firstImageId) {
 }
 
 function getSegmentList(firstImageId) {
-  console.info('Into getSegmentList');
+  console.debug('Into getSegmentList');
   let activeSegmentIndex = 0;
   let segments = [];
 
@@ -58,22 +58,22 @@ function getSegmentList(firstImageId) {
   const labelmap3D = brushStackState ? brushStackState.labelmaps3D[brushStackState.activeLabelmapIndex] : null;
 
   if (!labelmap3D) {
-    console.info('LabelMap3D is empty.. so zero segments');
+    console.debug('LabelMap3D is empty.. so zero segments');
     return { segments, activeSegmentIndex, labelmap3D };
   }
 
-  console.info('labelmap3D....');
-  console.info(labelmap3D);
+  console.debug('labelmap3D....');
+  console.debug(labelmap3D);
   if (!labelmap3D.metadata || !labelmap3D.metadata.data) {
-    console.info('Missing Meta Data for Label; so ignore');
+    console.debug('Missing Meta Data for Label; so ignore');
     return { segments, activeSegmentIndex, labelmap3D };
   }
 
   activeSegmentIndex = labelmap3D.activeSegmentIndex;
-  console.info('activeSegmentIndex: ' + activeSegmentIndex);
+  console.debug('activeSegmentIndex: ' + activeSegmentIndex);
 
   const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
-  console.info('Length of colorLutTable: ' + colorLutTable.length);
+  console.debug('Length of colorLutTable: ' + colorLutTable.length);
 
   for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
     const meta = labelmap3D.metadata.data[i];
@@ -88,8 +88,8 @@ function getSegmentList(firstImageId) {
     segments.push(segmentItem);
   }
 
-  console.info('segments....');
-  console.info(segments);
+  console.debug('segments....');
+  console.debug(segments);
   return { segments, activeSegmentIndex, labelmap3D };
 }
 
