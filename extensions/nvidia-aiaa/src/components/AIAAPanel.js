@@ -167,9 +167,9 @@ export default class AIAAPanel extends Component {
       currentSegModel: null,
       currentAnnModel: null,
       currentDeepgrowModel: null,
+      extremePoints: [],
       foregroundPoints: [],
       backgroundPoints: [],
-      extremePoints: [],
     };
 
     this.onClickModels();
@@ -210,9 +210,10 @@ export default class AIAAPanel extends Component {
       }
     }
 
-    const currentSegModel = segModels.length > 0 ? segModels[0] : null;
-    const currentAnnModel = annModels.length > 0 ? annModels[0] : null;
-    const currentDeepgrowModel = deepgrowModels.length > 0 ? deepgrowModels[0] : null;
+    const currentSegModel = segModels.length > 0 ? segModels[0].name : null;
+    const currentAnnModel = annModels.length > 0 ? annModels[0].name : null;
+    const currentDeepgrowModel = deepgrowModels.length > 0 ? deepgrowModels[0].name : null;
+
     this.setState({
       segModels: segModels,
       annModels: annModels,
@@ -305,7 +306,18 @@ export default class AIAAPanel extends Component {
     return session_id;
   };
 
-  onClickSegBtn = async model_name => {
+  onSelectSegModel = currentSegModel => {
+    this.setState({ currentSegModel });
+  };
+  onSelectAnnModel = currentAnnModel => {
+    this.setState({ currentAnnModel });
+  };
+  onSelectDeepgrowModel = currentDeepgrowModel => {
+    this.setState({ currentDeepgrowModel });
+  };
+
+  onClickSegBtn = async () => {
+    const model_name = this.state.currentSegModel;
     console.debug('On Click Segmentation: ' + model_name);
 
     if (!model_name) {
@@ -379,20 +391,78 @@ export default class AIAAPanel extends Component {
     cornerstone.updateImage(element);
   };
 
-  onClickAnnBtn = () => {
+  onClickAnnBtn = async () => {
+    const model_name = this.state.currentAnnModel;
+    console.info('On Click DExtr3D: ' + model_name);
+
+    if (!model_name) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Model is NOT selected',
+        type: 'info',
+      });
+      throw Error('Model is not selected');
+    }
+
+    const { studies } = this.props;
+    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+
+    // Wait for AIAA session
+    const session_id = await this.onCreateOrGetAiaaSession(true);
+    console.info('Using AIAA Session: ' + session_id);
+    if (!session_id) {
+      return;
+    }
+
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Running AIAA DExtr3D...',
+      type: 'info',
+      duration: 2000,
+    });
+
+    let response = await aiaaClient.dextr3d(
+      model_name,
+      this.state.extremePoints,
+      null,
+      session_id,
+    );
+
+    if (response.status !== 200) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to Run DExtr3D...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
+      });
+      return;
+    }
+
+    await loadDicomSeg(
+      response.data,
+      StudyInstanceUID,
+      SeriesInstanceUID,
+      studies,
+    );
+
+    const segmentList = getSegmentList(firstImageId);
+    const segments = segmentList.segments;
+    const activeSegmentIndex = segmentList.activeSegmentIndex;
+    const labelmap3D = segmentList.labelmap3D;
+
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
+
+    const element = getElementFromFirstImageId(firstImageId);
+    cornerstone.updateImage(element);
   };
 
-  onSelectSegModel = currentSegModel => {
-    this.setState({ currentSegModel });
-  };
-  onSelectAnnModel = currentAnnModel => {
-    this.setState({ currentAnnModel });
-  };
-  onSelectDeepgrowModel = currentDeepgrowModel => {
-    this.setState({ currentDeepgrowModel });
-  };
-
-  async runDeepGrow(model_name, foreground, background) {
+  onClickDeepgrowBtn = async () => {
+    const model_name = this.state.currentDeepgrowModel;
     console.info('On Click Deepgrow: ' + model_name);
 
     const { studies } = this.props;
@@ -415,8 +485,8 @@ export default class AIAAPanel extends Component {
 
     let response = await aiaaClient.deepgrow(
       model_name,
-      foreground,
-      background,
+      this.state.foregroundPoints,
+      this.state.backgroundPoints,
       null,
       session_id,
     );
@@ -641,12 +711,40 @@ export default class AIAAPanel extends Component {
     this.refreshSegTable();
   };
 
+  onClickClearDExtr3DPoints = () => {
+    console.info('Clear DExtr3D Points');
+    this.setState({ extremePoints: [] });
+
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      cornerstoneTools.clearToolState(enabledElement, 'DExtr3DProbe');
+    });
+
+    const element = getElementFromFirstImageId(this.state.firstImageId);
+    cornerstone.updateImage(element);
+  };
+
+  onStartStopDExtr3DAnnotation = (e) => {
+    console.info('value of checkbox : ', e.target.checked);
+    console.info(e);
+    if (e.target.checked) {
+      this.addEventListeners('nvidia_aiaa_dextr3d_probeevent', this.dextr3DClickEventHandler);
+
+      const toolName = 'DExtr3DProbe';
+      cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
+      console.debug('Activated the tool...');
+
+      this.onClickClearDExtr3DPoints();
+    } else {
+      this.removeEventListeners('nvidia_aiaa_dextr3d_probeevent', this.dextr3DClickEventHandler);
+    }
+  };
+
   onClickClearDeepgrowPoints = () => {
     console.info('Clear Deepgrow Points');
     this.setState({ foregroundPoints: [], backgroundPoints: [] });
 
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      cornerstoneTools.clearToolState(enabledElement, 'AIAAProbe');
+      cornerstoneTools.clearToolState(enabledElement, 'DeepgrowProbe');
     });
 
     const element = getElementFromFirstImageId(this.state.firstImageId);
@@ -657,9 +755,9 @@ export default class AIAAPanel extends Component {
     console.info('value of checkbox : ', e.target.checked);
     console.info(e);
     if (e.target.checked) {
-      this.addEventListeners();
+      this.addEventListeners('nvidia_aiaa_deepgrow_probeevent', this.deepgrowClickEventHandler);
 
-      const toolName = 'AIAAProbe';
+      const toolName = 'DeepgrowProbe';
       //const apiTool = cornerstoneTools[`${toolName}Tool`];
       //cornerstoneTools.addTool(apiTool);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
@@ -668,28 +766,54 @@ export default class AIAAPanel extends Component {
       // TODO:: Is it good idea to clear previous state when enable?
       this.onClickClearDeepgrowPoints();
     } else {
-      this.removeEventListeners();
+      this.removeEventListeners('nvidia_aiaa_deepgrow_probeevent', this.deepgrowClickEventHandler);
     }
   };
 
-  addEventListeners() {
+  addEventListeners(eventName, handler) {
     this.removeEventListeners();
 
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.addEventListener(
-        'nvidiaaiaaprobeevent',
-        this.deepgrowClickEventHandler.bind(this),
+        eventName,
+        handler.bind(this),
       );
     });
   }
 
-  removeEventListeners() {
+  removeEventListeners(eventName, handler) {
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.removeEventListener(
-        'nvidiaaiaaprobeevent',
-        this.deepgrowClickEventHandler,
+        eventName,
+        handler,
       );
     });
+  }
+
+  dextr3DClickEventHandler(evt) {
+    const eventData = evt.detail;
+    console.debug(eventData);
+
+    const { x, y } = eventData.currentPoints.image;
+    const { imageId } = eventData.image;
+    const z = this.state.imageIdsToIndex.get(imageId);
+
+    console.debug('ImageId: ' + imageId);
+    console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
+
+    let extremePoints = this.state.extremePoints;
+    extremePoints.push([x, y, z]);
+
+    this.setState({ extremePoints });
+    if (extremePoints.length === 1) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Keep Adding more extreme points (Min Required: 6)',
+        type: 'info',
+      });
+    } else if (extremePoints.length >= 6) {
+      this.onClickAnnBtn();
+    }
   }
 
   deepgrowClickEventHandler(evt) {
@@ -703,9 +827,6 @@ export default class AIAAPanel extends Component {
     console.debug('ImageId: ' + imageId);
     console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
 
-    console.info(this.state);
-
-    const model_name = 'deepgrow_2d';
     let foregroundPoints = this.state.foregroundPoints;
     let backgroundPoints = this.state.backgroundPoints;
     if (eventData.event.ctrlKey) {
@@ -715,7 +836,7 @@ export default class AIAAPanel extends Component {
     }
 
     this.setState({ foregroundPoints, backgroundPoints });
-    this.runDeepGrow(model_name, foregroundPoints, backgroundPoints);
+    this.onClickDeepgrowBtn();
 
     /*
     console.info('Trying to paint the segmentation pixels...');
@@ -749,7 +870,6 @@ export default class AIAAPanel extends Component {
     const {
       aiaaServerURL,
       firstImageId,
-      labelmap3D,
       segments,
       segModels,
       annModels,
@@ -966,10 +1086,22 @@ export default class AIAAPanel extends Component {
                       segmentation model to <i>select/propose extreme points</i>{' '}
                       of the organ.
                     </p>
-                    <p>
-                      Select a model and <b>Right click</b> to add/collect
-                      extreme points (Min: <b>6 points</b> are required)
-                    </p>
+                    <div className="pretty p-switch p-fill p-toggle">
+                      <input type="checkbox" onChange={this.onStartStopDExtr3DAnnotation}/>
+                      <div className="state p-on">
+                        <label>Stop Annotation</label>
+                      </div>
+                      <div className="state p-off">
+                        <label>Start Annotation</label>
+                      </div>
+                    </div>
+                    | &nbsp;&nbsp;<a href="#" onClick={this.onClickClearDExtr3DPoints.bind(this)}>Clear Points</a>
+                    <div>
+                      <ul className="simple-notes">
+                        <li><b>Click</b> to add <b><i>extreme</i></b> points</li>
+                        <li>Min <b>6 points</b> are required</li>
+                      </ul>
+                    </div>
                   </div>
                 }
               />

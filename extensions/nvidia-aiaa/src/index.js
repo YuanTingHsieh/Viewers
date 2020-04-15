@@ -2,9 +2,9 @@ import toolbarModule from './toolbarModule';
 import panelModule from './panelModule.js';
 import sopClassHandlerModule from './OHIFDicomSegSopClassHandler';
 import init from './init';
-import AIAAProbeTool from './utils/AIAAProbeTool';
+import { DeepgrowProbeTool, DExtr3DProbeTool } from './utils/AIAAProbeTool';
 
-export { AIAAProbeTool };
+export { DeepgrowProbeTool, DExtr3DProbeTool };
 
 export default {
   id: 'com.ohif.nvidia-aiaa',

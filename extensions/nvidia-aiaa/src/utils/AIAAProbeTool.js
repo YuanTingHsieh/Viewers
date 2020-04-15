@@ -6,7 +6,7 @@ const draw = cornerstoneTools.importInternal('drawing/draw');
 const drawHandles = cornerstoneTools.importInternal('drawing/drawHandles');
 const getNewContext = cornerstoneTools.importInternal('drawing/getNewContext');
 
-export default class AIAAProbeTool extends ProbeTool {
+export class AIAAProbeTool extends ProbeTool {
   constructor(props = {}) {
     const defaultProps = {
       name: 'AIAAProbe',
@@ -16,7 +16,6 @@ export default class AIAAProbeTool extends ProbeTool {
         handleRadius: 2,
         eventName: 'nvidiaaiaaprobeevent',
         color: ['red', 'blue'],
-        activeColor: 'red',
       },
     };
 
@@ -62,5 +61,41 @@ export default class AIAAProbeTool extends ProbeTool {
         });
       });
     }
+  }
+}
+
+export class DeepgrowProbeTool extends AIAAProbeTool {
+  constructor(props = {}) {
+    const defaultProps = {
+      name: 'DeepgrowProbe',
+      supportedInteractionTypes: ['Mouse'],
+      configuration: {
+        drawHandles: true,
+        handleRadius: 2,
+        eventName: 'nvidia_aiaa_deepgrow_probeevent',
+        color: ['red', 'blue'],
+      },
+    };
+
+    const initialProps = Object.assign(defaultProps, props);
+    super(initialProps);
+  }
+}
+
+export class DExtr3DProbeTool extends AIAAProbeTool {
+  constructor(props = {}) {
+    const defaultProps = {
+      name: 'DExtr3DProbe',
+      supportedInteractionTypes: ['Mouse'],
+      configuration: {
+        drawHandles: true,
+        handleRadius: 2,
+        eventName: 'nvidia_aiaa_dextr3d_probeevent',
+        color: ['yellow', 'yellow'],
+      },
+    };
+
+    const initialProps = Object.assign(defaultProps, props);
+    super(initialProps);
   }
 }
