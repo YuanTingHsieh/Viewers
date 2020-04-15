@@ -4,6 +4,7 @@ import MD5 from 'md5.js';
 
 import { Icon } from '@ohif/ui';
 import cornerstoneTools from 'cornerstone-tools';
+
 import { UINotificationService, utils } from '@ohif/core';
 
 import './AIAAPanel.styl';
@@ -124,6 +125,13 @@ export default class AIAAPanel extends Component {
     const firstImageId = studyMetadata.getFirstImageId(displaySetInstanceUID);
     console.debug(firstImageId);
 
+    const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
+    const imageIdsToIndex = new Map();
+    for (var i = 0; i < imageIds.length; i++) {
+      imageIdsToIndex.set(imageIds[i], i);
+    }
+    console.debug(imageIdsToIndex);
+
     const aiaaServerURL = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL');
     console.debug(aiaaServerURL);
 
@@ -150,6 +158,7 @@ export default class AIAAPanel extends Component {
       segments: segments,
       activeSegmentIndex: activeSegmentIndex,
       labelmap3D: labelmap3D,
+      imageIdsToIndex: imageIdsToIndex,
       // AIAA
       aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
       segModels: [],
@@ -216,12 +225,17 @@ export default class AIAAPanel extends Component {
       });
   };
 
+  getAIAASessionCookieID() {
+    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    const cookiePostfix = new MD5().update(PatientID + StudyInstanceUID + SeriesInstanceUID).digest('hex');
+    return 'NVIDIA_AIAA_SESSION_ID_' + cookiePostfix;
+  }
+
   onCreateOrGetAiaaSession = async (prefetch) => {
     const { studies } = this.props;
     const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
-    const cookiePostfix = new MD5().update(PatientID + StudyInstanceUID + SeriesInstanceUID).digest('hex');
-    const cookieId = 'NVIDIA_AIAA_SESSION_ID_' + cookiePostfix;
+    const cookieId = this.getAIAASessionCookieID();
     console.info('Using cookieId: ' + cookieId);
 
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
@@ -314,6 +328,22 @@ export default class AIAAPanel extends Component {
       session_id,
     );
 
+    if (response.status !== 200) {
+      if (response.status === 440) {
+        const cookieId = this.getAIAASessionCookieID();
+        console.info('Reset cookieId: ' + cookieId);
+        AIAAUtils.setAIAACookie(cookieId, '');
+      }
+
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to Run Auto-Segmentation...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
+      });
+      return;
+    }
+
     console.log(response.data);
     console.log(response.status);
     console.log(response.statusText);
@@ -348,7 +378,80 @@ export default class AIAAPanel extends Component {
   onClickAnnBtn = () => {
   };
 
-  onClickDeepgrowBtn = () => {
+  onClickDeepgrowBtn = async () => {
+  };
+
+  async runDeepGrow(model_name, foreground, background) {
+    console.info('On Click Deepgrow: ' + model_name);
+
+    const { studies } = this.props;
+    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+
+    // Wait for AIAA session
+    const session_id = await this.onCreateOrGetAiaaSession(true);
+    console.info('Using AIAA Session: ' + session_id);
+
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Running AIAA Deepgrow...',
+      type: 'info',
+      duration: 10000,
+    });
+
+    let response = await aiaaClient.deepgrow(
+      model_name,
+      foreground,
+      background,
+      null,
+      session_id,
+    );
+
+    if (response.status !== 200) {
+      if (response.status === 440) {
+        const cookieId = this.getAIAASessionCookieID();
+        console.info('Reset cookieId: ' + cookieId);
+        AIAAUtils.setAIAACookie(cookieId, '');
+      }
+
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to Run Deepgrow...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
+      });
+      return;
+    }
+
+    console.log(response.data);
+    console.log(response.status);
+    console.log(response.statusText);
+
+    await loadDicomSeg(
+      response.data,
+      StudyInstanceUID,
+      SeriesInstanceUID,
+      studies,
+    );
+
+    const segmentList = getSegmentList(firstImageId);
+    const segments = segmentList.segments;
+    const activeSegmentIndex = segmentList.activeSegmentIndex;
+    const labelmap3D = segmentList.labelmap3D;
+
+    this.setState({
+      segments,
+      activeSegmentIndex,
+      labelmap3D,
+    });
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'AIAA Auto-Segmentation complete!',
+      type: 'success',
+    });
+
+    const element = getElementFromFirstImageId(firstImageId);
+    cornerstone.updateImage(element);
   };
 
   createSegment(name, labelmapBuffer) {
@@ -560,7 +663,7 @@ export default class AIAAPanel extends Component {
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.addEventListener(
         'nvidiaaiaaprobeevent',
-        this.deepgrowClickEventHandler,
+        this.deepgrowClickEventHandler.bind(this),
       );
     });
   }
@@ -589,6 +692,16 @@ export default class AIAAPanel extends Component {
     console.info('ImageId: ' + imageId);
     console.info('rows: ' + rows + '; columns: ' + columns);
 
+    console.info(this.state);
+    const z = this.state.imageIdsToIndex.get(imageId);
+    console.info('Z: ' + z);
+
+    const model_name = 'deepgrow_2d';
+    const foreground = [[x, y, z]];
+    const background = [];
+    this.runDeepGrow(model_name, foreground, background);
+
+    /*
     console.info('Trying to paint the segmentation pixels...');
     const segmentationModule = cornerstoneTools.getModule('segmentation');
 
@@ -609,7 +722,7 @@ export default class AIAAPanel extends Component {
       shouldErase,
     );
 
-    cornerstone.updateImage(element);
+    cornerstone.updateImage(element);*/
   }
 
 

@@ -52,8 +52,8 @@ export default class AIAAUtils {
       })
       .catch(function(error) {
         // handle error
-        console.log(error);
-        throw error;
+        console.error(error);
+        return error;
       })
       .finally(function() {
         // always executed
@@ -77,13 +77,11 @@ export default class AIAAUtils {
         console.log(response);
         return response;
       })
-
       .catch(function(error) {
         // handle error
-        console.log(error);
-        throw error;
+        console.error(error);
+        return error;
       })
-
       .finally(function() {
         // always executed
       });
@@ -107,8 +105,8 @@ export default class AIAAUtils {
       })
       .catch(function(error) {
         // handle error
-        console.log(error);
-        throw error;
+        console.error(error);
+        return error;
       });
   }
 

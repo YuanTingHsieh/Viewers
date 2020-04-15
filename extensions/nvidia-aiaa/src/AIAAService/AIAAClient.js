@@ -47,17 +47,8 @@ export default class AIAAClient {
    * @param {string} session_id
    */
   async segmentation(model_name, image_in, session_id = undefined) {
-    console.log('AIAAClient - calling segmentation');
-    let seg_url = new URL('/v1/segmentation', this.server_url);
-    seg_url.searchParams.append('model', model_name);
-
-    // TODO:: parse multi-part
-    seg_url.searchParams.append('output', 'image');
-    if (session_id !== undefined)
-      seg_url.searchParams.append('session_id', session_id);
-
     const params = {};
-    return await AIAAUtils.api_post_file(seg_url.toString(), params, image_in);
+    return this.inference('segmentation', params, image_in, session_id);
   }
 
   /**
@@ -92,12 +83,37 @@ export default class AIAAClient {
     if (update_ts) {
       session_url.searchParams.append('update_ts', update_ts);
     }
-
     return await AIAAUtils.api_get(session_url.toString());
   }
 
-  // TODO:: rewrite this
-  async dextr3d(model_name, params, file) {
-    return undefined;
+  async deepgrow(model_name, foreground, background, image_in, session_id = undefined) {
+    const params = {
+      foreground: foreground,
+      background: background,
+    };
+    return this.inference('deepgrow', model_name, params, image_in, session_id);
+  }
+
+  async dextr3d(model_name, points, image_in, session_id = undefined) {
+    const params = {
+      points: points,
+    };
+    return this.inference('dextr3d', model_name, params, image_in, session_id);
+  }
+
+  async inference(api, model_name, params, image_in, session_id = undefined) {
+    console.log('AIAAClient - calling ' + api);
+    let seg_url = new URL('/v1/' + api, this.server_url);
+    seg_url.searchParams.append('model', model_name);
+
+    // TODO:: parse multi-part
+    seg_url.searchParams.append('output', 'image');
+    if (session_id !== undefined) {
+      seg_url.searchParams.append('session_id', session_id);
+    }
+
+    console.info('Using Params: ');
+    console.info(params);
+    return await AIAAUtils.api_post_file(seg_url.toString(), params, image_in);
   }
 }
