@@ -30,19 +30,19 @@ export default async function loadDicomSeg(
   const { labelmapBuffer, segMetadata, segmentsOnFrame } = results;
   const { setters } = cornerstoneTools.getModule('segmentation');
 
-  // Delete old labelmap
   const firstImageId = imageIds[0];
-  console.debug(firstImageId);
+  console.info(firstImageId);
 
+  // TODO:: How to update instead of Deleting old labelmap
   const segmentationModule = cornerstoneTools.getModule('segmentation');
   if (segmentationModule.state.series[firstImageId]) {
-    console.debug('Delete old labelmap');
+    console.info('Deleting old labelmap');
     delete segmentationModule.state.series[firstImageId];
   }
 
   // TODO: Could define a color LUT based on colors in the SEG.
   const labelmapIndex = getNextLabelmapIndex(firstImageId);
-  console.debug('labelmapIndex = ' + labelmapIndex);
+  console.info('labelmapIndex = ' + labelmapIndex);
   console.debug(segMetadata);
   console.debug(segmentsOnFrame);
 

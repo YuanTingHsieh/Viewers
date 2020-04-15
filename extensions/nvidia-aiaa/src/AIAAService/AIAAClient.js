@@ -40,18 +40,6 @@ export default class AIAAClient {
   }
 
   /**
-   * Calls AIAA segmentation API
-   *
-   * @param {string} model_name
-   * @param {file|Array} image_in
-   * @param {string} session_id
-   */
-  async segmentation(model_name, image_in, session_id = undefined) {
-    const params = {};
-    return this.inference('segmentation', params, image_in, session_id);
-  }
-
-  /**
    * Calls AIAA create session API
    *
    * @param image_in
@@ -84,6 +72,11 @@ export default class AIAAClient {
       session_url.searchParams.append('update_ts', update_ts);
     }
     return await AIAAUtils.api_get(session_url.toString());
+  }
+
+  async segmentation(model_name, image_in, session_id = undefined) {
+    const params = {};
+    return this.inference('segmentation', model_name, params, image_in, session_id);
   }
 
   async deepgrow(model_name, foreground, background, image_in, session_id = undefined) {
