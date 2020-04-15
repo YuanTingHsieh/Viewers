@@ -237,7 +237,7 @@ export default class AIAAPanel extends Component {
     return 'NVIDIA_AIAA_SESSION_ID_' + cookiePostfix;
   }
 
-  onCreateOrGetAiaaSession = async (prefetch) => {
+  onCreateOrGetAiaaSession = async () => {
     const { studies } = this.props;
     const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
 
@@ -258,8 +258,16 @@ export default class AIAAPanel extends Component {
       console.debug('Invalidate session (as it might have got expired)');
     }
 
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Please wait while creating new AIAA Session!',
+      type: 'info',
+      duration: 10000,
+    });
+
     // Method 1
     let response = null;
+    const prefetch = false;
     if (!prefetch) {
       DICOM_SERVER_INFO.patient_id = PatientID;
       DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
@@ -335,7 +343,7 @@ export default class AIAAPanel extends Component {
 
     // Wait for AIAA session
     // TODO:: Disable the button (avoid double click)
-    const session_id = await this.onCreateOrGetAiaaSession(true);
+    const session_id = await this.onCreateOrGetAiaaSession();
     console.debug('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
@@ -409,7 +417,7 @@ export default class AIAAPanel extends Component {
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
 
     // Wait for AIAA session
-    const session_id = await this.onCreateOrGetAiaaSession(true);
+    const session_id = await this.onCreateOrGetAiaaSession();
     console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
@@ -470,7 +478,7 @@ export default class AIAAPanel extends Component {
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
 
     // Wait for AIAA session
-    const session_id = await this.onCreateOrGetAiaaSession(true);
+    const session_id = await this.onCreateOrGetAiaaSession();
     console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
@@ -811,6 +819,9 @@ export default class AIAAPanel extends Component {
         message: 'Keep Adding more extreme points (Min Required: 6)',
         type: 'info',
       });
+
+      // TODO:: Have to avoid multiple requests when user adds 6 points very quickly..
+      // this.onCreateOrGetAiaaSession();
     } else if (extremePoints.length >= 6) {
       this.onClickAnnBtn();
     }
@@ -1068,6 +1079,7 @@ export default class AIAAPanel extends Component {
               name="css-tabs"
               id="tab-2"
               className="tab-switch"
+              defaultChecked
             />
             <label htmlFor="tab-2" className="tab-label">
               DExtr3D
@@ -1114,7 +1126,6 @@ export default class AIAAPanel extends Component {
               name="css-tabs"
               id="tab-3"
               className="tab-switch"
-              defaultChecked
             />
             <label htmlFor="tab-3" className="tab-label">
               DeepGrow
