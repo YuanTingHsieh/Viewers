@@ -15,7 +15,8 @@ export default class AIAAProbeTool extends ProbeTool {
         drawHandles: true,
         handleRadius: 2,
         eventName: 'nvidiaaiaaprobeevent',
-        color: 'red',
+        color: ['red', 'blue'],
+        activeColor: 'red',
       },
     };
 
@@ -24,9 +25,14 @@ export default class AIAAProbeTool extends ProbeTool {
   }
 
   createNewMeasurement(eventData) {
+    console.debug(eventData);
     let res = super.createNewMeasurement(eventData);
     if (res) {
-      console.log('TRIGGERING AIAA PROB EVENT: ' + this.configuration.eventName);
+      res.color = this.configuration.color[eventData.event.ctrlKey ? 1 : 0];
+      res.ctrlKey = eventData.event.ctrlKey;
+
+      console.info('TRIGGERING AIAA PROB EVENT: ' + this.configuration.eventName);
+      console.info(res);
       triggerEvent(eventData.element, this.configuration.eventName, eventData);
     }
     return res;
@@ -35,8 +41,8 @@ export default class AIAAProbeTool extends ProbeTool {
   renderToolData(evt) {
     const eventData = evt.detail;
     const { handleRadius } = this.configuration;
-    const toolData = getToolState(evt.currentTarget, this.name);
 
+    const toolData = getToolState(evt.currentTarget, this.name);
     if (!toolData) {
       return;
     }
@@ -49,7 +55,7 @@ export default class AIAAProbeTool extends ProbeTool {
       }
 
       draw(context, context => {
-        const color = this.configuration.color;
+        const color = data.color;
         drawHandles(context, eventData, data.handles, {
           handleRadius,
           color,

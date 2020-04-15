@@ -9,6 +9,7 @@ export default class AIAATable extends Component {
   static propTypes = {
     title: PropTypes.string,
     api_call: PropTypes.func,
+    select_call: PropTypes.func,
     usage: PropTypes.any,
     models: PropTypes.array,
   };
@@ -18,17 +19,15 @@ export default class AIAATable extends Component {
 
     this.state = {
       currModel: '',
-      currLabels: [],
     };
   }
 
   onChangeModel = evt => {
     this.setState({
       currModel: evt.target.value,
-      currLabels: evt.target.selectedOptions[0]
-        .getAttribute('aiaalabel')
-        .split(',', 20),
     });
+    console.info('Current Selected Model: ' + evt.target.value);
+    this.props.select_call(evt.target.value);
   };
 
   onClickBtn = () => {
@@ -50,13 +49,14 @@ export default class AIAATable extends Component {
                 onChange={this.onChangeModel}
                 value={this.state.currModel}
               >
-                <option key="default" value="" aiaalabel=""></option>
                 {this.props.models.map(model => (
                   <option
                     key={model.name}
                     value={model.name}
                     aiaalabel={model.labels}
-                  >{`${model.name} `}</option>
+                  >
+                    {`${model.name} `}
+                  </option>
                 ))}
               </select>
             </td>
@@ -66,6 +66,7 @@ export default class AIAATable extends Component {
                 className="aiaaButton"
                 onClick={this.onClickBtn}
                 title="Run Action"
+                style={{display: (this.props.api_call ? 'block' : 'none')}}
               >
                 <Icon name="brain" width="16px" height="16px"/>
               </button>

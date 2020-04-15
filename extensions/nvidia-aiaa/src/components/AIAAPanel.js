@@ -164,6 +164,12 @@ export default class AIAAPanel extends Component {
       segModels: [],
       annModels: [],
       deepgrowModels: [],
+      currentSegModel: null,
+      currentAnnModel: null,
+      currentDeepgrowModel: null,
+      foregroundPoints: [],
+      backgroundPoints: [],
+      extremePoints: [],
     };
 
     this.onClickModels();
@@ -204,10 +210,16 @@ export default class AIAAPanel extends Component {
       }
     }
 
+    const currentSegModel = segModels.length > 0 ? segModels[0] : null;
+    const currentAnnModel = annModels.length > 0 ? annModels[0] : null;
+    const currentDeepgrowModel = deepgrowModels.length > 0 ? deepgrowModels[0] : null;
     this.setState({
       segModels: segModels,
       annModels: annModels,
       deepgrowModels: deepgrowModels,
+      currentSegModel: currentSegModel,
+      currentAnnModel: currentAnnModel,
+      currentDeepgrowModel: currentDeepgrowModel,
     });
 
     this.notification.show({
@@ -370,7 +382,14 @@ export default class AIAAPanel extends Component {
   onClickAnnBtn = () => {
   };
 
-  onClickDeepgrowBtn = async () => {
+  onSelectSegModel = currentSegModel => {
+    this.setState({ currentSegModel });
+  };
+  onSelectAnnModel = currentAnnModel => {
+    this.setState({ currentAnnModel });
+  };
+  onSelectDeepgrowModel = currentDeepgrowModel => {
+    this.setState({ currentDeepgrowModel });
   };
 
   async runDeepGrow(model_name, foreground, background) {
@@ -622,8 +641,21 @@ export default class AIAAPanel extends Component {
     this.refreshSegTable();
   };
 
-  onClickAddForeGround = (e) => {
-    console.debug('value of checkbox : ', e.target.checked);
+  onClickClearDeepgrowPoints = () => {
+    console.info('Clear Deepgrow Points');
+    this.setState({ foregroundPoints: [], backgroundPoints: [] });
+
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      cornerstoneTools.clearToolState(enabledElement, 'AIAAProbe');
+    });
+
+    const element = getElementFromFirstImageId(this.state.firstImageId);
+    cornerstone.updateImage(element);
+  };
+
+  onStartStopDeepGrowAnnotation = (e) => {
+    console.info('value of checkbox : ', e.target.checked);
+    console.info(e);
     if (e.target.checked) {
       this.addEventListeners();
 
@@ -632,6 +664,9 @@ export default class AIAAPanel extends Component {
       //cornerstoneTools.addTool(apiTool);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
       console.debug('Activated the tool...');
+
+      // TODO:: Is it good idea to clear previous state when enable?
+      this.onClickClearDeepgrowPoints();
     } else {
       this.removeEventListeners();
     }
@@ -668,10 +703,19 @@ export default class AIAAPanel extends Component {
     console.debug('ImageId: ' + imageId);
     console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
 
+    console.info(this.state);
+
     const model_name = 'deepgrow_2d';
-    const foreground = [[x, y, z]];
-    const background = [];
-    this.runDeepGrow(model_name, foreground, background);
+    let foregroundPoints = this.state.foregroundPoints;
+    let backgroundPoints = this.state.backgroundPoints;
+    if (eventData.event.ctrlKey) {
+      backgroundPoints.push([x, y, z]);
+    } else {
+      foregroundPoints.push([x, y, z]);
+    }
+
+    this.setState({ foregroundPoints, backgroundPoints });
+    this.runDeepGrow(model_name, foregroundPoints, backgroundPoints);
 
     /*
     console.info('Trying to paint the segmentation pixels...');
@@ -887,6 +931,7 @@ export default class AIAAPanel extends Component {
                 title="Segmentation Models:"
                 models={segModels}
                 api_call={this.onClickSegBtn}
+                select_call={this.onSelectSegModel}
                 usage={
                   <p>
                     Fully automated segmentation <b>without any user input</b>.
@@ -913,6 +958,7 @@ export default class AIAAPanel extends Component {
                 title="Annotation (DExtr3D) Models:"
                 models={annModels}
                 api_call={this.onClickAnnBtn}
+                select_call={this.onSelectAnnModel}
                 usage={
                   <div>
                     <p>
@@ -946,24 +992,28 @@ export default class AIAAPanel extends Component {
               <AIAATable
                 title="DeepGrow Models:"
                 models={deepgrowModels}
-                api_call={this.onClickDeepgrowBtn}
+                select_call={this.onSelectDeepgrowModel}
                 usage={
                   <div>
                     <p>
                       You can use deepgrow model to annotate <b>any organ</b>.
                     </p>
-                    <p>
-                      <label>
-                        <input id='btnAddForeGround' type="checkbox" onChange={this.onClickAddForeGround}/>
-                        add <i>foreground points</i>
-                      </label>
-                    </p>
-                    <p>
-                      <label>
-                        <input id='btnAddBackGround' type="checkbox" onChange={this.onClickAddForeGround}/>
-                        add <i>background points</i>
-                      </label>
-                    </p>
+                    <div className="pretty p-switch p-fill p-toggle">
+                      <input type="checkbox" onChange={this.onStartStopDeepGrowAnnotation}/>
+                      <div className="state p-on">
+                        <label>Stop Annotation</label>
+                      </div>
+                      <div className="state p-off">
+                        <label>Start Annotation</label>
+                      </div>
+                    </div>
+                    | &nbsp;&nbsp;<a href="#" onClick={this.onClickClearDeepgrowPoints.bind(this)}>Clear Points</a>
+                    <div>
+                      <ul className="simple-notes">
+                        <li><b>Click</b> to add <b><i>foreground</i></b> points</li>
+                        <li><b>Ctrl + Click</b> to add <b><i>background</i></b> points</li>
+                      </ul>
+                    </div>
                   </div>
                 }
               />
