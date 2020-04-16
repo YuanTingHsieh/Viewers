@@ -1089,7 +1089,6 @@ export default class AIAAPanel extends Component {
               <AIAATable
                 title="Annotation (DExtr3D) Models:"
                 models={annModels}
-                api_call={this.onClickAnnBtn}
                 select_call={this.onSelectAnnModel}
                 usage={
                   <div>
