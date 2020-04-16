@@ -72,7 +72,7 @@ export class DeepgrowProbeTool extends AIAAProbeTool {
       configuration: {
         drawHandles: true,
         handleRadius: 2,
-        eventName: 'nvidia_aiaa_deepgrow_probeevent',
+        eventName: 'nvidia_aiaa_event_DeepgrowProbe',
         color: ['red', 'blue'],
       },
     };
@@ -90,7 +90,7 @@ export class DExtr3DProbeTool extends AIAAProbeTool {
       configuration: {
         drawHandles: true,
         handleRadius: 2,
-        eventName: 'nvidia_aiaa_dextr3d_probeevent',
+        eventName: 'nvidia_aiaa_event_DExtr3DProbe',
         color: ['yellow', 'yellow'],
       },
     };
