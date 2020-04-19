@@ -69,9 +69,52 @@ export default class AIAAPanel extends Component {
     this.notification = UINotificationService.create({});
 
     console.debug(props);
-    const { viewports, activeIndex, studies } = props;
+    const { viewports, studies, activeIndex } = props;
     console.debug('activeIndex = ' + activeIndex);
 
+    this.dicomData = this.getDICOMData(viewports, studies, activeIndex);
+    const { firstImageId } = this.dicomData;
+
+    const aiaaServerURL = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL');
+    console.debug(aiaaServerURL);
+
+    let segments = [];
+    let activeSegmentIndex = 1;
+    let labelmap3D;
+    if (firstImageId) {
+      const segmentList = getSegmentList(firstImageId);
+      segments = segmentList.segments;
+      activeSegmentIndex = segmentList.activeSegmentIndex;
+      labelmap3D = segmentList.labelmap3D;
+    }
+    console.debug('segments:' + segments);
+    console.debug('activeSegmentIndex:' + activeSegmentIndex);
+    console.debug('labelmap3D:' + labelmap3D);
+
+    this.state = {
+      // segments
+      segments: segments,
+      activeSegmentIndex: activeSegmentIndex,
+      labelmap3D: labelmap3D,
+      // AIAA
+      aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
+      segModels: [],
+      annModels: [],
+      deepgrowModels: [],
+      currentSegModel: null,
+      currentAnnModel: null,
+      currentDeepgrowModel: null,
+      extremePoints: [],
+      foregroundPoints: [],
+      backgroundPoints: [],
+    };
+  }
+
+  async componentDidMount() {
+    await this.onClickModels();
+  }
+
+  getDICOMData = (viewports, studies, activeIndex) => {
     const viewport = viewports[activeIndex];
     console.debug(viewport);
 
@@ -96,52 +139,19 @@ export default class AIAAPanel extends Component {
 
     const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
     const imageIdsToIndex = new Map();
-    for (var i = 0; i < imageIds.length; i++) {
+    for (let i = 0; i < imageIds.length; i++) {
       imageIdsToIndex.set(imageIds[i], i);
     }
     console.debug(imageIdsToIndex);
 
-    const aiaaServerURL = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL');
-    console.debug(aiaaServerURL);
-
-    let segments = [];
-    let activeSegmentIndex = 1;
-    let labelmap3D;
-    if (firstImageId) {
-      const segmentList = getSegmentList(firstImageId);
-      segments = segmentList.segments;
-      activeSegmentIndex = segmentList.activeSegmentIndex;
-      labelmap3D = segmentList.labelmap3D;
-    }
-    console.debug('segments:' + segments);
-    console.debug('activeSegmentIndex:' + activeSegmentIndex);
-    console.debug('labelmap3D:' + labelmap3D);
-
-    this.state = {
-      // DICOM
+    return {
       PatientID: PatientID,
       StudyInstanceUID: StudyInstanceUID,
       SeriesInstanceUID: SeriesInstanceUID,
       displaySetInstanceUID: displaySetInstanceUID,
       firstImageId: firstImageId,
-      segments: segments,
-      activeSegmentIndex: activeSegmentIndex,
-      labelmap3D: labelmap3D,
       imageIdsToIndex: imageIdsToIndex,
-      // AIAA
-      aiaaServerURL: aiaaServerURL !== null ? aiaaServerURL : 'http://0.0.0.0:5678/',
-      segModels: [],
-      annModels: [],
-      deepgrowModels: [],
-      currentSegModel: null,
-      currentAnnModel: null,
-      currentDeepgrowModel: null,
-      extremePoints: [],
-      foregroundPoints: [],
-      backgroundPoints: [],
-    };
-
-    this.onClickModels();
+    }
   }
 
   onBlurSeverURL = evt => {
@@ -150,22 +160,10 @@ export default class AIAAPanel extends Component {
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', value);
   };
 
-  onClickModels = async () => {
+  setModels = (response) => {
     let segModels = [];
     let annModels = [];
     let deepgrowModels = [];
-
-    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
-    let response = await aiaaClient.model_list();
-    if (response.status !== 200) {
-      this.notification.show({
-        title: 'NVIDIA AIAA',
-        message: 'Failed to fetch AIAA models...\nReason: ' + response.data,
-        type: 'error',
-        duration: 5000,
-      });
-      return;
-    }
 
     for (let i = 0; i < response.data.length; ++i) {
       if (response.data[i].type === 'annotation') {
@@ -191,6 +189,21 @@ export default class AIAAPanel extends Component {
       currentAnnModel: currentAnnModel,
       currentDeepgrowModel: currentDeepgrowModel,
     });
+  }
+
+  onClickModels = async () => {
+    let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
+    let response = await aiaaClient.model_list();
+    if (response.status !== 200) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Failed to fetch AIAA models...\nReason: ' + response.data,
+        type: 'error',
+        duration: 5000,
+      });
+      return;
+    }
+    this.setModels(response);
 
     this.notification.show({
       title: 'NVIDIA AIAA',
@@ -201,14 +214,14 @@ export default class AIAAPanel extends Component {
   };
 
   getAIAASessionCookieID() {
-    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
     const cookiePostfix = new MD5().update(PatientID + StudyInstanceUID + SeriesInstanceUID).digest('hex');
     return 'NVIDIA_AIAA_SESSION_ID_' + cookiePostfix;
   }
 
   onCreateOrGetAiaaSession = async () => {
     const { studies } = this.props;
-    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
 
     const cookieId = this.getAIAASessionCookieID();
     console.debug('Using cookieId: ' + cookieId);
@@ -305,9 +318,6 @@ export default class AIAAPanel extends Component {
       });
       throw Error('Model is not selected');
     }
-
-    const { studies } = this.props;
-    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
 
     // Wait for AIAA session
@@ -341,36 +351,18 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    await loadDicomSeg(
-      response.data,
-      StudyInstanceUID,
-      SeriesInstanceUID,
-      studies,
-    );
+    await this.updateView(response);
 
-    const segmentList = getSegmentList(firstImageId);
-    const segments = segmentList.segments;
-    const activeSegmentIndex = segmentList.activeSegmentIndex;
-    const labelmap3D = segmentList.labelmap3D;
-
-    this.setState({
-      segments,
-      activeSegmentIndex,
-      labelmap3D,
-    });
     this.notification.show({
       title: 'NVIDIA AIAA',
       message: 'AIAA Auto-Segmentation complete!',
       type: 'success',
     });
-
-    const element = getElementFromFirstImageId(firstImageId);
-    cornerstone.updateImage(element);
   };
 
-  onClickAnnBtn = async () => {
+  onDextr3D = async () => {
     const model_name = this.state.currentAnnModel;
-    console.info('On Click DExtr3D: ' + model_name);
+    console.info('On DExtr3D: ' + model_name);
 
     if (!model_name) {
       this.notification.show({
@@ -380,9 +372,6 @@ export default class AIAAPanel extends Component {
       });
       throw Error('Model is not selected');
     }
-
-    const { studies } = this.props;
-    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
 
     // Wait for AIAA session
@@ -416,34 +405,12 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    await loadDicomSeg(
-      response.data,
-      StudyInstanceUID,
-      SeriesInstanceUID,
-      studies,
-    );
-
-    const segmentList = getSegmentList(firstImageId);
-    const segments = segmentList.segments;
-    const activeSegmentIndex = segmentList.activeSegmentIndex;
-    const labelmap3D = segmentList.labelmap3D;
-
-    this.setState({
-      segments,
-      activeSegmentIndex,
-      labelmap3D,
-    });
-
-    const element = getElementFromFirstImageId(firstImageId);
-    cornerstone.updateImage(element);
+    await this.updateView(response);
   };
 
-  onClickDeepgrowBtn = async () => {
+  onDeepgrow = async () => {
     const model_name = this.state.currentDeepgrowModel;
-    console.info('On Click Deepgrow: ' + model_name);
-
-    const { studies } = this.props;
-    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.state;
+    console.info('Calling Deepgrow: ' + model_name);
     let aiaaClient = new AIAAClient(this.state.aiaaServerURL);
 
     // Wait for AIAA session
@@ -478,6 +445,13 @@ export default class AIAAPanel extends Component {
       return;
     }
 
+    await this.updateView(response);
+  };
+
+  updateView = async (response) => {
+    const { studies } = this.props;
+    const { firstImageId, StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
+
     await loadDicomSeg(
       response.data,
       StudyInstanceUID,
@@ -498,12 +472,13 @@ export default class AIAAPanel extends Component {
 
     const element = getElementFromFirstImageId(firstImageId);
     cornerstone.updateImage(element);
-  };
+  }
 
   createSegment(name, labelmapBuffer) {
     console.debug('Creating New Segment...');
 
-    let { labelmap3D, firstImageId, SeriesInstanceUID } = this.state;
+    let { labelmap3D } = this.state;
+    const { firstImageId, SeriesInstanceUID } = this.dicomData;
 
     // AIAA can update some of the following from the output (DICOM-SEG) of deepgrow/dextr3d
     const newMetadata = {
@@ -555,7 +530,7 @@ export default class AIAAPanel extends Component {
 
     if (labelmapBuffer) {
       const { studies } = this.props;
-      const { StudyInstanceUID, SeriesInstanceUID } = this.state;
+      const { StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
 
       const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
       const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
@@ -577,13 +552,13 @@ export default class AIAAPanel extends Component {
     return labelmap3D;
   }
 
-  updateSegement(name, labelmapBuffer) {
+  updateSegment(name, labelmapBuffer) {
     // TODO:: Challenging task.. update the name, labelmapBuffer etc...
   }
 
   onClickAddSegment = () => {
     const labelmap3D = this.createSegment('label-1');
-    const { segments, activeSegmentIndex } = getSegmentList(this.state.firstImageId);
+    const { segments, activeSegmentIndex } = getSegmentList(this.dicomData.firstImageId);
 
     this.setState({
       segments,
@@ -620,7 +595,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    let { firstImageId, labelmap3D } = this.state;
+    let { labelmap3D } = this.state;
     if (!labelmap3D) {
       console.debug('Label Map is NULL');
       return;
@@ -644,7 +619,8 @@ export default class AIAAPanel extends Component {
   };
 
   refreshSegTable(updateImage = true) {
-    const segmentList = getSegmentList(this.state.firstImageId);
+    const { firstImageId } = this.dicomData;
+    const segmentList = getSegmentList(firstImageId);
     const { segments, activeSegmentIndex, labelmap3D } = segmentList;
     this.setState({
       segments,
@@ -653,7 +629,7 @@ export default class AIAAPanel extends Component {
     });
 
     if (updateImage) {
-      const element = getElementFromFirstImageId(this.state.firstImageId);
+      const element = getElementFromFirstImageId(firstImageId);
       cornerstone.updateImage(element);
     }
   }
@@ -701,33 +677,13 @@ export default class AIAAPanel extends Component {
     }
   };
 
-  addEventListeners = (eventName, handler) => {
-    this.removeEventListeners();
-
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      enabledElement.addEventListener(
-        eventName,
-        handler.bind(this),
-      );
-    });
-  };
-
-  removeEventListeners = (eventName, handler) => {
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      enabledElement.removeEventListener(
-        eventName,
-        handler,
-      );
-    });
-  };
-
   getPoints = (evt) => {
     const eventData = evt.detail;
     console.debug(eventData);
 
     const { x, y } = eventData.currentPoints.image;
     const { imageId } = eventData.image;
-    const z = this.state.imageIdsToIndex.get(imageId);
+    const z = this.dicomData.imageIdsToIndex.get(imageId);
 
     console.debug('ImageId: ' + imageId);
     console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
@@ -738,7 +694,7 @@ export default class AIAAPanel extends Component {
     };
   };
 
-  dextr3DClickEventHandler(evt) {
+  dextr3DClickEventHandler = async (evt) => {
     const { x, y, z } = this.getPoints(evt);
 
     let extremePoints = this.state.extremePoints;
@@ -755,11 +711,11 @@ export default class AIAAPanel extends Component {
       // TODO:: Have to avoid multiple requests when user adds 6 points very quickly..
       // this.onCreateOrGetAiaaSession();
     } else if (extremePoints.length >= 6) {
-      this.onClickAnnBtn();
+      await this.onDextr3D();
     }
   }
 
-  deepgrowClickEventHandler(evt) {
+  deepgrowClickEventHandler = async (evt) => {
     const { x, y, z } = this.getPoints(evt);
 
     let foregroundPoints = this.state.foregroundPoints;
@@ -771,7 +727,7 @@ export default class AIAAPanel extends Component {
     }
 
     this.setState({ foregroundPoints, backgroundPoints });
-    this.onClickDeepgrowBtn();
+    await this.onDeepgrow();
 
     /*
     console.info('Trying to paint the segmentation pixels...');
@@ -804,12 +760,12 @@ export default class AIAAPanel extends Component {
 
     const {
       aiaaServerURL,
-      firstImageId,
       segments,
       segModels,
       annModels,
       deepgrowModels,
     } = this.state;
+    const { firstImageId } =  this.dicomData;
 
     console.debug(aiaaServerURL);
     console.debug(firstImageId);
@@ -1027,9 +983,7 @@ export default class AIAAPanel extends Component {
               <AnnotationBar
                 toolName="DExtr3DProbe"
                 eventHandler={this.dextr3DClickEventHandler}
-                addEventListeners={this.addEventListeners}
-                removeEventListeners={this.removeEventListeners}
-                firstImageId={this.state.firstImageId}
+                firstImageId={this.dicomData.firstImageId}
                 resetPoints={this.resetPoints}
                 usage={
                   <div>
@@ -1070,9 +1024,7 @@ export default class AIAAPanel extends Component {
               <AnnotationBar
                 toolName="DeepgrowProbe"
                 eventHandler={this.deepgrowClickEventHandler}
-                addEventListeners={this.addEventListeners}
-                removeEventListeners={this.removeEventListeners}
-                firstImageId={this.state.firstImageId}
+                firstImageId={this.dicomData.firstImageId}
                 resetPoints={this.resetPoints}
                 usage={
                   <div>

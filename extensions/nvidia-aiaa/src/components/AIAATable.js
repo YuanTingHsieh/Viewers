@@ -19,6 +19,7 @@ export default class AIAATable extends Component {
 
     this.state = {
       currModel: '',
+      api_disabled: false,
     };
   }
 
@@ -31,6 +32,11 @@ export default class AIAATable extends Component {
   };
 
   onClickBtn = () => {
+    // TODO:: Fix double click stuff here?
+    if (this.state.api_disabled) {
+      return;
+    }
+    this.setState({api_disabled: true});
     this.props.api_call(this.state.currModel);
   };
 

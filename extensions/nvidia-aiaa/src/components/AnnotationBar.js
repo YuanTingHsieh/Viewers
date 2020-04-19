@@ -9,8 +9,6 @@ export default class AnnotationBar extends React.Component {
   static propTypes = {
     toolName: PropTypes.string,
     eventHandler: PropTypes.func,
-    addEventListeners: PropTypes.func,
-    removeEventListeners: PropTypes.func,
     firstImageId: PropTypes.any,
     resetPoints: PropTypes.func,
     usage: PropTypes.any,
@@ -35,16 +33,36 @@ export default class AnnotationBar extends React.Component {
   onStartStopAnnotation = e => {
     console.info('value of checkbox : ', e.target.checked);
     console.info(e);
-    let { toolName, eventHandler, addEventListeners, removeEventListeners } = this.props;
+    let { toolName, eventHandler } = this.props;
     let eventName = 'nvidia_aiaa_event_' + toolName;
     if (e.target.checked) {
-      addEventListeners(eventName, eventHandler);
+      this.addEventListeners(eventName, eventHandler);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
       console.debug('Activated the tool...');
       this.onClickClearPoints();
     } else {
-      removeEventListeners(eventName, eventHandler);
+      this.removeEventListeners(eventName, eventHandler);
     }
+  };
+
+  addEventListeners = (eventName, handler) => {
+    this.removeEventListeners();
+
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      enabledElement.addEventListener(
+        eventName,
+        handler,
+      );
+    });
+  };
+
+  removeEventListeners = (eventName, handler) => {
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      enabledElement.removeEventListener(
+        eventName,
+        handler,
+      );
+    });
   };
 
   render() {
