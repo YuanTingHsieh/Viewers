@@ -78,7 +78,7 @@ export default class AnnotationBar extends React.Component {
           </div>
         </div>
         | &nbsp;&nbsp;
-        <a href="#" onClick={this.onClickClearPoints}>Clear Points</a>;
+        <a href="#" onClick={this.onClickClearPoints}>Clear Points</a>
         {this.props.usage}
       </div>
     );

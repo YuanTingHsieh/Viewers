@@ -488,7 +488,7 @@ export default class AIAAPanel extends Component {
         CodeMeaning: 'Anatomical Structure',
       },
       SegmentNumber: 1,
-      SegmentLabel: name,
+      SegmentLabel: (name ? name : 'label-1'),
       SegmentDescription: '',
       SegmentAlgorithmType: 'AUTOMATIC',
       SegmentAlgorithmName: 'CNN',
@@ -510,7 +510,7 @@ export default class AIAAPanel extends Component {
       console.debug('Max Segment: ' + maxSegmentId);
 
       newMetadata.SegmentNumber = maxSegmentId + 1;
-      newMetadata.SegmentLabel = 'label_' + newMetadata.SegmentNumber;
+      newMetadata.SegmentLabel = (name ? name : ('label_' + newMetadata.SegmentNumber));
       metadata.data.push(newMetadata);
 
       labelmap3D.activeSegmentIndex = metadata.data.length - 1;
@@ -525,46 +525,52 @@ export default class AIAAPanel extends Component {
 
       metadata.seriesInstanceUid = SeriesInstanceUID;
       metadata.data = [undefined, newMetadata]; // always 1st one is empty
+
       labelmap3D.activeSegmentIndex = 1;
     }
 
+    const { setters } = cornerstoneTools.getModule('segmentation');
+    const element = getElementFromFirstImageId(firstImageId);
+    setters.activeSegmentIndex(element, labelmap3D.activeSegmentIndex);
+
     if (labelmapBuffer) {
-      const { studies } = this.props;
-      const { StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
-
-      const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
-      const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
-      const { metadata } = labelmap3D;
-
-      const { setters } = cornerstoneTools.getModule('segmentation');
-      setters.labelmap3DByFirstImageId(
-        imageIds[0],
-        labelmapBuffer,
-        labelmapIndex,
-        metadata,
-        imageIds.length,
-      );
-
-      const element = getElementFromFirstImageId(firstImageId);
-      cornerstone.updateImage(element);
+      this.updateSegment(labelmapBuffer, labelmap3D, element);
     }
 
-    return labelmap3D;
-  }
-
-  updateSegment(name, labelmapBuffer) {
-    // TODO:: Challenging task.. update the name, labelmapBuffer etc...
-  }
-
-  onClickAddSegment = () => {
-    const labelmap3D = this.createSegment('label-1');
-    const { segments, activeSegmentIndex } = getSegmentList(this.dicomData.firstImageId);
-
+    // Update State...
+    const { segments, activeSegmentIndex } = getSegmentList(this.state.firstImageId);
     this.setState({
       segments,
       activeSegmentIndex,
       labelmap3D,
     });
+  }
+
+  updateSegment(labelmapBuffer, labelmap3D, element) {
+    const { studies } = this.props;
+    const { StudyInstanceUID, SeriesInstanceUID } = this.dicomData;
+
+    const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
+    const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
+    const { metadata } = labelmap3D;
+
+    console.info('labelmapIndex: ' + labelmapIndex);
+
+    const { setters } = cornerstoneTools.getModule('segmentation');
+    setters.labelmap3DByFirstImageId(
+      imageIds[0],
+      labelmapBuffer,
+      labelmapIndex,
+      metadata,
+      imageIds.length,
+    );
+
+    cornerstone.updateImage(element);
+  }
+
+  onClickAddSegment = () => {
+    const element = getElementFromFirstImageId(this.state.firstImageId);
+    this.createSegment();
   };
 
   onClickSelectSegment = () => {
@@ -635,7 +641,7 @@ export default class AIAAPanel extends Component {
   }
 
   loadNrrdData = async () => {
-    console.debug('Reload Segments (NRRD)....');
+    console.debug('Fetch Segments (NRRD)....');
     let url = 'http://10.110.46.111:8002/spleen_Liver1.nrrd';
     var response = await axios.get(url, { responseType: 'arraybuffer' });
 
@@ -644,9 +650,8 @@ export default class AIAAPanel extends Component {
     return data.buffer;
   };
 
-  loadNiftiData = async () => {
-    console.debug('Reload Segments....');
-    let url = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
+  loadNiftiData = async (url) => {
+    console.debug('Fetch Segments (NIFTI)....');
     var response = await axios.get(url, { responseType: 'arraybuffer' });
 
     const niftiReader = new NIFTIReader();
@@ -655,10 +660,25 @@ export default class AIAAPanel extends Component {
   };
 
   onClickReloadSegments = async () => {
-    const pixelData = await this.loadNiftiData();
+    let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
+    const pixelData = await this.loadNiftiData(url);
 
     console.debug('Trying to create a segment with image input...');
-    this.createSegment('label-1', pixelData);
+    this.createSegment('liver');
+    this.createSegment('liver tumor', pixelData);
+
+    let url2 = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
+    const pixelData2 = await this.loadNiftiData(url2);
+
+    var z = new Uint16Array(pixelData2);
+    for (var i = 0; i < z.length; i++) {
+      if (z[i] == 1) {
+        z[i] = 3;
+      }
+    }
+
+    console.debug('Trying to create a segment with image input...');
+    this.createSegment('spleen', pixelData2);
 
     console.debug('Finished create a segment with image input...');
     this.refreshSegTable();
