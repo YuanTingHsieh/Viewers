@@ -36,7 +36,7 @@ export default class AIAATable extends Component {
     if (this.state.api_disabled) {
       return;
     }
-    this.setState({api_disabled: true});
+    // this.setState({api_disabled: true});
     this.props.api_call(this.state.currModel);
   };
 

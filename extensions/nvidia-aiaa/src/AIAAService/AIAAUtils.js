@@ -123,7 +123,22 @@ export default class AIAAUtils {
     );
   }
 
-  static getAIAACookie(name) {
-    return _getCookie(name);
+  static getAIAACookie(name, defaultVal = '') {
+    const val = _getCookie(name);
+    console.info(name + ' = ' + val + ' (default: ' + defaultVal + ' )');
+    if (!val) {
+      return defaultVal;
+    }
+    return val;
+  }
+
+  static getAIAACookieBool(name, defaultVal = false) {
+    const val = this.getAIAACookie(name, defaultVal);
+    return !!JSON.parse(String(val).toLowerCase());
+  }
+
+  static getAIAACookieNumber(name, defaultVal = 0) {
+    const val = this.getAIAACookie(name, defaultVal);
+    return Number(val);
   }
 }

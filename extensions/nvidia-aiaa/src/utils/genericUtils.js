@@ -51,6 +51,9 @@ function getSegmentList(firstImageId) {
   console.debug('Into getSegmentList');
   let activeSegmentIndex = 0;
   let segments = [];
+  if (!firstImageId) {
+    return { segments, activeSegmentIndex, labelmap3D: null };
+  }
 
   /* CornerstoneTools */
   const segmentationModule = cornerstoneTools.getModule('segmentation');
