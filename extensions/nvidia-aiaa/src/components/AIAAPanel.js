@@ -649,17 +649,16 @@ export default class AIAAPanel extends Component {
     let selected = evt.currentTarget.value;
     console.info('Selected: ' + selected);
     if (selected === 'dextr3d') {
-      cornerstoneTools.setToolActive('DeepgrowProbe', { mouseButtonMask: 4 });
+      cornerstoneTools.setToolDisabled('DeepgrowProbe', {});
       cornerstoneTools.setToolActive('DExtr3DProbe', { mouseButtonMask: 1 });
       this.addEventListeners('nvidia_aiaa_event_DExtr3DProbe', this.dextr3DClickEventHandler);
     } else if (selected === 'deepgrow') {
-      cornerstoneTools.setToolActive('DExtr3DProbe', { mouseButtonMask: 4 });
+      cornerstoneTools.setToolDisabled('DExtr3DProbe', {});
       cornerstoneTools.setToolActive('DeepgrowProbe', { mouseButtonMask: 1 });
       this.addEventListeners('nvidia_aiaa_event_DeepgrowProbe', this.deepgrowClickEventHandler); // cornerstonetoolsmeasurementadded
     } else {
-      cornerstoneTools.setToolActive('DExtr3DProbe', { mouseButtonMask: 4 });
-      cornerstoneTools.setToolActive('DeepgrowProbe', { mouseButtonMask: 4 });
-      cornerstoneTools.setToolActive('stackScroll', { mouseButtonMask: 1 });
+      cornerstoneTools.setToolDisabled('DExtr3DProbe', {});
+      cornerstoneTools.setToolDisabled('DeepgrowProbe', {});
       this.removeEventListeners();
     }
   };
