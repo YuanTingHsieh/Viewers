@@ -163,10 +163,9 @@ export default class AIAAPanel extends Component {
 
   onBlurSeverURL = evt => {
     let value = evt.target.value;
-    const aiaaSettings = this.state.aiaaSettings;
-    aiaaSettings.url = value;
+    const aiaaSettings = Object.assign({}, this.state.aiaaSettings, {url: value});
 
-    this.setState({ aiaaSettings });
+    this.setState({ aiaaSettings: aiaaSettings });
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', value);
   };
 
@@ -334,7 +333,6 @@ export default class AIAAPanel extends Component {
     const labels = this.state.currentSegModel.labels;
 
     // Wait for AIAA session
-    // TODO:: Disable the button (avoid double click)
     const session_id = await this.onCreateOrGetAiaaSession();
     console.debug('Using AIAA Session: ' + session_id);
     if (!session_id) {
@@ -481,7 +479,7 @@ export default class AIAAPanel extends Component {
     const { pixelData } = niftiReader.read(response.data);
 
     if (labels) {
-      for (var i = 0; i < labels.length; i++) {
+      for (let i = 0; i < labels.length; i++) {
         this.createSegment(labels[i], (i === 0 ? pixelData : null));
       }
       return;
@@ -580,8 +578,8 @@ export default class AIAAPanel extends Component {
     console.info('labelmapIndex: ' + labelmapIndex + '; activeSegmentIndex: ' + activeSegmentIndex + '; segmentOffset: ' + segmentOffset);
 
     if (segmentOffset > 0) {
-      var z = new Uint16Array(labelmapBuffer);
-      for (var i = 0; i < z.length; i++) {
+      let z = new Uint16Array(labelmapBuffer);
+      for (let i = 0; i < z.length; i++) {
         if (z[i] > 0) {
           z[i] = z[i] + segmentOffset;
         }
@@ -597,6 +595,22 @@ export default class AIAAPanel extends Component {
       imageIds.length,
     );
 
+    cornerstone.updateImage(element);
+  }
+
+  removeSegment = (segmentIndices) => {
+    const { firstImageId } = this.viewConstants;
+    const element = getElementFromFirstImageId(firstImageId);
+    /* CornerstoneTools */
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const brushStackState = segmentationModule.state.series[firstImageId];
+
+    if (!brushStackState) {
+      console.error('No brush state in cornerstone, something is wrong');
+    }
+
+    const indexSet = new Set(segmentIndices);
+    brushStackState.labelmaps3D = brushStackState.labelmaps3D.filter((value, i) => {!indexSet.has(i)});
     cornerstone.updateImage(element);
   }
 
@@ -657,6 +671,9 @@ export default class AIAAPanel extends Component {
       }
     }
 
+    this.removeSegment(segItems);
+
+    // TODO:: here implicitly modify the state...
     metadata.data = newData;
     labelmap3D.activeSegmentIndex = metadata.data.length > 0 ? 1 : 0;
     this.refreshSegTable();
@@ -724,7 +741,7 @@ export default class AIAAPanel extends Component {
     console.info(points);
     if (points) {
       cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-        for (var i = 0; i < points.length; i++) {
+        for (let i = 0; i < points.length; i++) {
           cornerstoneTools.addToolState(enabledElement, toolName, points[i].data);
         }
       });
@@ -998,6 +1015,7 @@ export default class AIAAPanel extends Component {
               <AIAATable
                 title="Segmentation Models:"
                 models={this.state.segModels}
+                currentModel={this.state.currentSegModel}
                 api_call={this.onClickSegBtn}
                 select_call={this.onSelectSegModel}
                 usage={
@@ -1026,6 +1044,7 @@ export default class AIAAPanel extends Component {
               <AIAATable
                 title="Annotation (DExtr3D) Models:"
                 models={this.state.annModels}
+                currentModel={this.state.currentAnnModel}
                 select_call={this.onSelectAnnModel}
                 usage={
                   <div>
@@ -1069,6 +1088,7 @@ export default class AIAAPanel extends Component {
               <AIAATable
                 title="DeepGrow Models:"
                 models={this.state.deepgrowModels}
+                currentModel={this.state.currentDeepgrowModel}
                 select_call={this.onSelectDeepgrowModel}
                 usage={
                   <div>

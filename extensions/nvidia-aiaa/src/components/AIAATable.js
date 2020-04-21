@@ -12,32 +12,29 @@ export default class AIAATable extends Component {
     select_call: PropTypes.func,
     usage: PropTypes.any,
     models: PropTypes.array,
+    currentModel: PropTypes.string,
   };
 
   constructor(props) {
     super(props);
 
     this.state = {
-      currModel: '',
       api_disabled: false,
     };
   }
 
   onChangeModel = evt => {
-    this.setState({
-      currModel: evt.target.value,
-    });
     console.info('Current Selected Model: ' + evt.target.value);
     this.props.select_call(evt.target.value);
   };
 
-  onClickBtn = () => {
-    // TODO:: Fix double click stuff here?
+  onClickBtn = async () => {
     if (this.state.api_disabled) {
       return;
     }
-    // this.setState({api_disabled: true});
-    this.props.api_call(this.state.currModel);
+    this.setState({api_disabled: true});
+    await this.props.api_call();
+    this.setState({api_disabled: false});
   };
 
   render() {
@@ -53,7 +50,7 @@ export default class AIAATable extends Component {
               <select
                 className="aiaaDropDown"
                 onChange={this.onChangeModel}
-                value={this.state.currModel}
+                value={this.props.currentModel}
               >
                 {this.props.models.map(model => (
                   <option
@@ -72,6 +69,7 @@ export default class AIAATable extends Component {
                 className="aiaaButton"
                 onClick={this.onClickBtn}
                 title="Run Action"
+                disabled={this.state.api_disabled}
                 style={{display: (this.props.api_call ? 'block' : 'none')}}
               >
                 <Icon name="brain" width="16px" height="16px"/>
