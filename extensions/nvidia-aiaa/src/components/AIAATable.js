@@ -7,12 +7,13 @@ import './AIAAPanel.styl';
 
 export default class AIAATable extends Component {
   static propTypes = {
+    name: PropTypes.string,
     title: PropTypes.string,
     api_call: PropTypes.func,
     select_call: PropTypes.func,
     usage: PropTypes.any,
     models: PropTypes.array,
-    currentModel: PropTypes.string,
+    currentModel: PropTypes.any,
   };
 
   constructor(props) {
@@ -49,8 +50,9 @@ export default class AIAATable extends Component {
             <td width="80%">
               <select
                 className="aiaaDropDown"
+                name={this.props.name + 'Select'}
                 onChange={this.onChangeModel}
-                value={this.props.currentModel}
+                value={this.props.currentModel ? this.props.currentModel.name : ''}
               >
                 {this.props.models.map(model => (
                   <option
@@ -67,12 +69,13 @@ export default class AIAATable extends Component {
             <td width="18%">
               <button
                 className="aiaaButton"
+                name={this.props.name + 'Button'}
                 onClick={this.onClickBtn}
                 title="Run Action"
                 disabled={this.state.api_disabled}
                 style={{display: (this.props.api_call ? 'block' : 'none')}}
               >
-                <Icon name="brain" width="16px" height="16px"/>
+                <Icon name="brain" width="16px" height="16px" />
               </button>
             </td>
           </tr>
