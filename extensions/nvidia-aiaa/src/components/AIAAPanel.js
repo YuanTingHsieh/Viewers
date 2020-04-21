@@ -14,7 +14,12 @@ import Collapsible from './Collapsible';
 import AnnotationBar from './AnnotationBar';
 
 import { AIAAClient, AIAAUtils, AIAAVolume } from '../AIAAService';
-import { getElementFromFirstImageId, getImageIdsForDisplaySet, getSegmentList } from '../utils/genericUtils';
+import {
+  getElementFromFirstImageId,
+  getImageIdsForDisplaySet,
+  getNextLabelmapIndex,
+  getSegmentList,
+} from '../utils/genericUtils';
 import NIFTIReader from '../utils/NIFTIReader';
 
 const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
@@ -565,7 +570,10 @@ export default class AIAAPanel extends Component {
     const { StudyInstanceUID, SeriesInstanceUID } = this.viewConstants;
 
     const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
-    const labelmapIndex = 1; //getNextLabelmapIndex(imageIds[0]);
+
+    // TODO:: Something is wrong.. override is possibily adding as a next labelMapIndex (segment color becomes stronger for every dextr3d click)
+    //        For deepgrow it's fine if we use labelmapIndex = 1
+    const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
     const { metadata } = labelmap3D;
 
     const segmentOffset = labelmap3D.activeSegmentIndex - 1;
