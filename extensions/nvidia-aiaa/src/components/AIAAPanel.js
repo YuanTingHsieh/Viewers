@@ -571,14 +571,13 @@ export default class AIAAPanel extends Component {
 
     const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
 
-    // TODO:: Something is wrong.. override is possibily adding as a next labelMapIndex (segment color becomes stronger for every dextr3d click)
-    //        For deepgrow it's fine if we use labelmapIndex = 1
-    //        Have to update for segmentIndex + labelmapIndex
+    // TODO:: Fix for deepgrow (merge slice/previous mask)
     const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
     const { metadata } = labelmap3D;
 
+    const activeSegmentIndex = labelmap3D.activeSegmentIndex;
     const segmentOffset = labelmap3D.activeSegmentIndex - 1;
-    console.info('labelmapIndex: ' + labelmapIndex + '; segmentOffset: ' + segmentOffset);
+    console.info('labelmapIndex: ' + labelmapIndex + '; activeSegmentIndex: ' + activeSegmentIndex + '; segmentOffset: ' + segmentOffset);
 
     if (segmentOffset > 0) {
       var z = new Uint16Array(labelmapBuffer);
@@ -593,7 +592,7 @@ export default class AIAAPanel extends Component {
     setters.labelmap3DByFirstImageId(
       imageIds[0],
       labelmapBuffer,
-      labelmapIndex,
+      activeSegmentIndex,
       metadata,
       imageIds.length,
     );

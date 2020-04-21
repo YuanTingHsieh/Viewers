@@ -15,15 +15,15 @@ export default class NIFTIReader {
     const niftiHeader = nifti.readHeader(data);
     const niftiImage = nifti.readImage(niftiHeader, data);
 
-    console.info('NIFTI Header');
-    console.info(niftiHeader.toFormattedString());
+    console.debug('NIFTI Header');
+    console.debug(niftiHeader.toFormattedString());
 
-    console.info('NIFTI Image');
-    console.info(niftiImage);
+    console.debug('NIFTI Image');
+    console.debug(niftiImage);
 
     const pixelData = NIFTIReader.getPixelData(niftiHeader, niftiImage);
-    console.info('Pixel Data');
-    console.info(pixelData);
+    console.debug('Pixel Data');
+    console.debug(pixelData);
 
     return {
       niftiHeader,
@@ -36,7 +36,7 @@ export default class NIFTIReader {
     var typedData = niftiImage;
 
     // TODO:: Better way to convert data.. any such conversions is too time consuming to load in labelMapBuffer
-    console.info('NIFTI HEADER => datatypeCode: ' + niftiHeader.datatypeCode);
+    console.debug('NIFTI HEADER => datatypeCode: ' + niftiHeader.datatypeCode);
 
     if (niftiHeader.datatypeCode === nifti.NIFTI1.TYPE_UINT8) {
       typedData = new Uint8Array(niftiImage);
