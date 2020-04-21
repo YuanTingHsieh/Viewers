@@ -1,9 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import cornerstoneTools from 'cornerstone-tools';
-import cornerstone from 'cornerstone-core';
-
-import { getElementFromFirstImageId } from '../utils/genericUtils';
 
 export default class AnnotationBar extends React.Component {
   static propTypes = {
@@ -21,25 +18,20 @@ export default class AnnotationBar extends React.Component {
   onClickClearPoints = () => {
     console.info('Clear Points ' + this.props.toolName);
     this.props.resetPoints(this.props.toolName);
-
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      cornerstoneTools.clearToolState(enabledElement, this.props.toolName);
-    });
-
-    const element = getElementFromFirstImageId(this.props.firstImageId);
-    cornerstone.updateImage(element);
   };
 
   onStartStopAnnotation = e => {
-    console.info('value of checkbox : ', e.target.checked);
-    console.info(e);
+    console.debug('value of checkbox : ', e.target.checked);
+    console.debug(e);
     let { toolName, eventHandler } = this.props;
     let eventName = 'nvidia_aiaa_event_' + toolName;
+
     if (e.target.checked) {
       this.addEventListeners(eventName, eventHandler);
       cornerstoneTools.setToolActive(toolName, { mouseButtonMask: 1 });
-      console.debug('Activated the tool...');
-      this.onClickClearPoints();
+
+      //console.debug('Activated the tool...');
+      //this.onClickClearPoints();
     } else {
       this.removeEventListeners(eventName, eventHandler);
     }
@@ -48,6 +40,7 @@ export default class AnnotationBar extends React.Component {
   addEventListeners = (eventName, handler) => {
     this.removeEventListeners();
 
+    // TODO:: Do we have to do for every enabled Elements or just elemnt??
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.addEventListener(
         eventName,

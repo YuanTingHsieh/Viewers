@@ -14,12 +14,7 @@ import Collapsible from './Collapsible';
 import AnnotationBar from './AnnotationBar';
 
 import { AIAAClient, AIAAUtils, AIAAVolume } from '../AIAAService';
-import {
-  getElementFromFirstImageId,
-  getImageIdsForDisplaySet,
-  getNextLabelmapIndex,
-  getSegmentList,
-} from '../utils/genericUtils';
+import { getElementFromFirstImageId, getImageIdsForDisplaySet, getSegmentList } from '../utils/genericUtils';
 import NIFTIReader from '../utils/NIFTIReader';
 
 const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
@@ -91,9 +86,8 @@ export default class AIAAPanel extends Component {
       currentSegModel: null,
       currentAnnModel: null,
       currentDeepgrowModel: null,
-      extremePoints: [],
-      foregroundPoints: [],
-      backgroundPoints: [],
+      extremePoints: new Map(),
+      deepgrowPoints: new Map(),
     };
   }
 
@@ -387,9 +381,8 @@ export default class AIAAPanel extends Component {
       });
       throw Error('Model is not selected');
     }
-    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
 
-    // Wait for AIAA session
+    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const session_id = await this.onCreateOrGetAiaaSession();
     console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
@@ -403,9 +396,11 @@ export default class AIAAPanel extends Component {
       duration: 2000,
     });
 
+    const points = this.state.extremePoints.get(this.state.activeSegmentIndex);
+    const pts = points.map(p => [p.x, p.y, p.z]);
     let response = await aiaaClient.dextr3d(
       model_name,
-      this.state.extremePoints,
+      pts,
       null,
       session_id,
     );
@@ -423,7 +418,7 @@ export default class AIAAPanel extends Component {
     await this.updateView(response);
   };
 
-  onDeepgrow = async () => {
+  onDeepgrow = async (sliceIndex) => {
     const model_name = this.state.currentDeepgrowModel ? this.state.currentDeepgrowModel.name : null;
     console.info('Calling Deepgrow: ' + model_name);
     console.info(this.state.currentDeepgrowModel);
@@ -436,9 +431,8 @@ export default class AIAAPanel extends Component {
       });
       throw Error('Model is not selected');
     }
-    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
 
-    // Wait for AIAA session
+    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const session_id = await this.onCreateOrGetAiaaSession();
     console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
@@ -452,10 +446,14 @@ export default class AIAAPanel extends Component {
       duration: 2000,
     });
 
+    const points = this.state.deepgrowPoints.get(this.state.activeSegmentIndex);
+    const fg = points.filter(p => p.z === sliceIndex && !p.data.ctrlKey).map(p => [p.x, p.y, p.z]);
+    const bg = points.filter(p => p.z === sliceIndex && p.data.ctrlKey).map(p => [p.x, p.y, p.z]);
+
     let response = await aiaaClient.deepgrow(
       model_name,
-      this.state.foregroundPoints,
-      this.state.backgroundPoints,
+      fg,
+      bg,
       null,
       session_id,
     );
@@ -567,7 +565,7 @@ export default class AIAAPanel extends Component {
     const { StudyInstanceUID, SeriesInstanceUID } = this.viewConstants;
 
     const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
-    const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
+    const labelmapIndex = 1; //getNextLabelmapIndex(imageIds[0]);
     const { metadata } = labelmap3D;
 
     const segmentOffset = labelmap3D.activeSegmentIndex - 1;
@@ -582,7 +580,6 @@ export default class AIAAPanel extends Component {
       }
     }
 
-    // TODO:: Have to fix for deepgrow (which is per slice)
     const { setters } = cornerstoneTools.getModule('segmentation');
     setters.labelmap3DByFirstImageId(
       imageIds[0],
@@ -597,18 +594,24 @@ export default class AIAAPanel extends Component {
 
   onClickAddSegment = () => {
     this.createSegment();
+    this.refreshSegTable();
   };
 
   onClickSelectSegment = evt => {
-    console.info('On Select Segment...');
-    console.info(evt);
+    const activeSegmentIndex = parseInt(evt.currentTarget.value);
+    console.info('Set activeSegmentIndex: ' + activeSegmentIndex);
 
-    const activeSegmentIndex = evt.currentTarget.value;
     const labelmap3D = this.state.labelmap3D;
+    if (labelmap3D) {
+      labelmap3D.activeSegmentIndex = activeSegmentIndex;
+    }
 
-    this.setState({
-      activeSegmentIndex,
-    });
+    const { setters } = cornerstoneTools.getModule('segmentation');
+    setters.activeSegmentIndex(this.viewConstants.element, activeSegmentIndex);
+
+    //TODO:: this is immediate... setState is async
+    this.state.activeSegmentIndex = activeSegmentIndex;
+    this.initPointsAll();
   };
 
   onClickDeleteSegments = () => {
@@ -661,10 +664,8 @@ export default class AIAAPanel extends Component {
       labelmap3D,
     });
 
-    if (updateImage) {
-      const element = getElementFromFirstImageId(firstImageId);
-      cornerstone.updateImage(element);
-    }
+    this.state.activeSegmentIndex = activeSegmentIndex;
+    this.initPointsAll();
   }
 
   loadNiftiData = async (url) => {
@@ -676,7 +677,7 @@ export default class AIAAPanel extends Component {
     return pixelData;
   };
 
-  onClickReloadSegments = async () => {
+  onClickSaveSegments = async () => {
     let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
     const pixelData = await this.loadNiftiData(url);
 
@@ -694,44 +695,85 @@ export default class AIAAPanel extends Component {
     this.refreshSegTable();
   };
 
-  resetPoints = (toolName) => {
-    if (toolName === 'DExtr3DProbe') {
-      this.setState({
-        extremePoints: [],
-      });
-    } else if (toolName === 'DeepgrowProbe') {
-      this.setState({
-        foreground: [],
-        background: [],
-      });
-    }
+  initPointsAll = () => {
+    this.initPoints('DExtr3DProbe');
+    this.initPoints('DeepgrowProbe');
   };
 
-  getPoints = (evt) => {
-    const eventData = evt.detail;
-    console.debug(eventData);
+  initPoints = (toolName) => {
+    const { activeSegmentIndex } = this.state;
+    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
 
-    const { x, y } = eventData.currentPoints.image;
-    const { imageId } = eventData.image;
+    console.info('Init Points for: ' + toolName + '; ActiveSegment: ' + activeSegmentIndex);
+
+    // Clear
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      cornerstoneTools.clearToolState(enabledElement, toolName);
+    });
+
+    // Add Points
+    const points = pointsAll.get(activeSegmentIndex);
+    console.info(points);
+    if (points) {
+      cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+        for (var i = 0; i < points.length; i++) {
+          cornerstoneTools.addToolState(enabledElement, toolName, points[i].data);
+        }
+      });
+    }
+
+    // Refresh
+    cornerstone.updateImage(this.viewConstants.element);
+  };
+
+  resetPoints = (toolName) => {
+    console.info('resetPoints... for: ' + toolName);
+    const { activeSegmentIndex } = this.state;
+    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
+
+    const points = pointsAll.get(activeSegmentIndex);
+    if (points) {
+      pointsAll.delete(activeSegmentIndex);
+    }
+
+    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
+      cornerstoneTools.clearToolState(enabledElement, toolName);
+    });
+    cornerstone.updateImage(this.viewConstants.element);
+  };
+
+  getPointData = (evt) => {
+    console.debug(evt);
+
+    const { x, y, imageId } = evt.detail;
     const z = this.viewConstants.imageIdsToIndex.get(imageId);
 
     console.debug('ImageId: ' + imageId);
     console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
-    return {
-      x: x,
-      y: y,
-      z: z,
-    };
+    return { x, y, z, data: evt.detail };
   };
 
-  dextr3DClickEventHandler = async (evt) => {
-    const { x, y, z } = this.getPoints(evt);
+  dextr3DClickEventHandler = async (data) => {
+    const { activeSegmentIndex } = this.state;
+    if (!activeSegmentIndex) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Please create/select a label first',
+        type: 'warning',
+      });
+      throw Error('Label is not selected');
+    }
 
-    let extremePoints = this.state.extremePoints;
-    extremePoints.push([x, y, z]);
+    let points = this.state.extremePoints.get(this.state.activeSegmentIndex);
+    if (!points) {
+      points = [];
+      this.state.extremePoints.set(activeSegmentIndex, points);
+    }
 
-    this.setState({ extremePoints });
-    if (extremePoints.length === 1) {
+    points.push(this.getPointData(data));
+
+    console.info(this.state.extremePoints);
+    if (points.length === 1) {
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Keep Adding more extreme points (Min Required: 6)',
@@ -740,53 +782,44 @@ export default class AIAAPanel extends Component {
 
       // TODO:: Have to avoid multiple requests when user adds 6 points very quickly..
       // this.onCreateOrGetAiaaSession();
-    } else if (extremePoints.length >= 6) {
+    } else if (points.length >= 6) {
       await this.onDextr3D();
     }
   };
 
-  deepgrowClickEventHandler = async (evt) => {
-    const { x, y, z } = this.getPoints(evt);
-
-    let foregroundPoints = this.state.foregroundPoints;
-    let backgroundPoints = this.state.backgroundPoints;
-    if (evt.detail.event.ctrlKey) {
-      backgroundPoints.push([x, y, z]);
-    } else {
-      foregroundPoints.push([x, y, z]);
+  deepgrowClickEventHandler = async (data) => {
+    const { activeSegmentIndex } = this.state;
+    if (!activeSegmentIndex) {
+      this.notification.show({
+        title: 'NVIDIA AIAA',
+        message: 'Please create/select a label first',
+        type: 'warning',
+      });
+      throw Error('Label is not selected');
     }
 
-    this.setState({ foregroundPoints, backgroundPoints });
-    await this.onDeepgrow();
+    let points = this.state.deepgrowPoints.get(activeSegmentIndex);
+    if (!points) {
+      points = [];
+      this.state.deepgrowPoints.set(activeSegmentIndex, points);
+    }
 
-    /*
-    console.info('Trying to paint the segmentation pixels...');
-    const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const pointData = this.getPointData(data);
+    points.push(pointData);
 
-    const labelmapData = segmentationModule.getters.labelmap2D(element);
-    const labelmap3D = labelmapData.labelmap3D;
-    const labelmap2D = labelmapData.labelmap2D;
-
-    const pointerArray = getCircle(100, rows, columns, x, y);
-    console.info('Draw Some Brush Pixels ...... ');
-
-    // TODO:: Get PixelArray for current slice from nifti result and paste it here.. should be easy
-    const shouldErase = false;
-    drawBrushPixels(
-      pointerArray,
-      labelmap2D.pixelData,
-      labelmap3D.activeSegmentIndex,
-      columns,
-      shouldErase,
-    );
-
-    cornerstone.updateImage(element);*/
+    console.info(this.state.deepgrowPoints);
+    await this.onDeepgrow(pointData.z);
   };
 
 
   render() {
     console.debug('Into render......');
     console.debug(this.state);
+
+    // TODO:: Remove AnnotationBar from panel and move it to ToolBar
+    //        By default they handle should be received..
+    //        Check if cornerstonetoolsmeasurementadded event is good enough to handle instead of custom event name..
+
 
     return (
       <div className="aiaaPanel">
@@ -820,11 +853,11 @@ export default class AIAAPanel extends Component {
             <td align="right">
               <button
                 className="segButton"
-                onClick={this.onClickReloadSegments}
-                title={'Reload Segments'}
+                onClick={this.onClickSaveSegments}
+                title={'Save Segments'}
               >
                 <Icon name="reset" width="12px" height="12px"/>
-                Reload
+                Save
               </button>
             </td>
           </tr>

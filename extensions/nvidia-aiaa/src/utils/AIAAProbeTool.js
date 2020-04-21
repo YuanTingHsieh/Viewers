@@ -23,16 +23,29 @@ export class AIAAProbeTool extends ProbeTool {
     super(initialProps);
   }
 
+  uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      let r = (Math.random() * 16) | 0,
+        v = c == 'x' ? r : (r & 0x3) | 0x8;
+
+      return v.toString(16);
+    });
+  }
+
   createNewMeasurement(eventData) {
     console.debug(eventData);
     let res = super.createNewMeasurement(eventData);
     if (res) {
+      res.uuid = res.uuid || this.uuidv4();
       res.color = this.configuration.color[eventData.event.ctrlKey ? 1 : 0];
       res.ctrlKey = eventData.event.ctrlKey;
+      res.imageId = eventData.image.imageId;
+      res.x = eventData.currentPoints.image.x;
+      res.y = eventData.currentPoints.image.y;
 
       console.info('TRIGGERING AIAA PROB EVENT: ' + this.configuration.eventName);
       console.info(res);
-      triggerEvent(eventData.element, this.configuration.eventName, eventData);
+      triggerEvent(eventData.element, this.configuration.eventName, res);
     }
     return res;
   }
