@@ -573,6 +573,7 @@ export default class AIAAPanel extends Component {
 
     // TODO:: Something is wrong.. override is possibily adding as a next labelMapIndex (segment color becomes stronger for every dextr3d click)
     //        For deepgrow it's fine if we use labelmapIndex = 1
+    //        Have to update for segmentIndex + labelmapIndex
     const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
     const { metadata } = labelmap3D;
 
