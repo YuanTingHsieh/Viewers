@@ -170,7 +170,7 @@ export default class AIAAPanel extends Component {
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', value);
   };
 
-  setModels = (response) => {
+  setModels = response => {
     let segModels = [];
     let annModels = [];
     let deepgrowModels = [];
@@ -302,17 +302,16 @@ export default class AIAAPanel extends Component {
 
   onSelectSegModel = name => {
     const currentSegModel = this.state.segModels.find(x => x.name === name);
-    console.info(currentSegModel);
     this.setState({ currentSegModel });
   };
+
   onSelectAnnModel = name => {
     const currentAnnModel = this.state.annModels.find(x => x.name === name);
-    console.info(currentAnnModel);
     this.setState({ currentAnnModel });
   };
+
   onSelectDeepgrowModel = name => {
     const currentDeepgrowModel = this.state.deepgrowModels.find(x => x.name === name);
-    console.info(currentDeepgrowModel);
     this.setState({ currentDeepgrowModel });
   };
 
@@ -484,6 +483,12 @@ export default class AIAAPanel extends Component {
     await this.updateView(response);
   };
 
+  /**
+   * Updates cornerstone view given response getting from AIAA
+   *
+   * @param {Object} response
+   * @param {Array} [labels] An array of label names
+   */
   updateView = async (response, labels) => {
     const niftiReader = new NIFTIReader();
     const { pixelData } = niftiReader.read(response.data);
@@ -501,6 +506,18 @@ export default class AIAAPanel extends Component {
     this.updateSegment(pixelData, labelmap3D, element);
   };
 
+  /**
+   * Creates a segment.
+   *
+   * TODO:: Clean this up
+   *   1. state immutability need to be considered
+   *   2. we might just get Labelmap3D from cornerstone since it will also update
+   *      the data structure instead of we keeping a copy of that here
+   *   3. The only thing we want to keep might just be the metadata
+   *
+   * @param {String} [name] Segment name
+   * @param {ArrayBuffer} [labelmapBuffer]
+   */
   createSegment(name, labelmapBuffer) {
     console.debug('Creating New Segment...');
 
@@ -545,9 +562,8 @@ export default class AIAAPanel extends Component {
       console.debug('Label Map is NULL');
       const element = getElementFromFirstImageId(firstImageId);
       const segmentationModule = cornerstoneTools.getModule('segmentation');
-      const labelmapData = segmentationModule.getters.labelmap2D(element);
-
-      labelmap3D = labelmapData.labelmap3D;
+      const labelmap2D = segmentationModule.getters.labelmap2D(element);
+      labelmap3D = labelmap2D.labelmap3D;
       const { metadata } = labelmap3D;
 
       metadata.seriesInstanceUid = SeriesInstanceUID;
@@ -566,7 +582,6 @@ export default class AIAAPanel extends Component {
 
     // Update State...
     const { segments, activeSegmentIndex } = getSegmentList(this.viewConstants.firstImageId);
-    this.state.activeSegmentIndex = activeSegmentIndex;
     this.setState({
       segments,
       activeSegmentIndex,
@@ -574,6 +589,15 @@ export default class AIAAPanel extends Component {
     });
   }
 
+  /**
+   * Update segments data and view.
+   *
+   * Refer to https://tools.cornerstonejs.org/modules/#segmentation for details
+   *
+   * @param {ArrayBuffer} labelmapBuffer A 16-bit encoded `ArrayBuffer`
+   * @param labelmap3D
+   * @param element
+   */
   updateSegment(labelmapBuffer, labelmap3D, element) {
     const { studies } = this.props;
     const { StudyInstanceUID, SeriesInstanceUID } = this.viewConstants;
@@ -597,6 +621,7 @@ export default class AIAAPanel extends Component {
       }
     }
 
+    // refer to: https://github.com/cornerstonejs/cornerstoneTools/blob/master/src/store/modules/segmentationModule/setLabelmap3D.js#L72
     const { setters } = cornerstoneTools.getModule('segmentation');
     setters.labelmap3DByFirstImageId(
       imageIds[0],
@@ -609,7 +634,14 @@ export default class AIAAPanel extends Component {
     cornerstone.updateImage(element);
   }
 
-  removeSegment = (segmentIndex) => {
+  /**
+   * Removes a segment.
+   *
+   * TODO:: fix all segment functionalities
+   *
+   * @param {int} segmentIndex
+   */
+  removeSegment = segmentIndex => {
     const { firstImageId } = this.viewConstants;
     const element = getElementFromFirstImageId(firstImageId);
 
@@ -618,7 +650,6 @@ export default class AIAAPanel extends Component {
     if (!brushStackState) {
       console.error('No brush state in cornerstone, something is wrong');
     }
-
     brushStackState.labelmaps3D = brushStackState.labelmaps3D.filter((value, i) => i !== segmentIndex);
     cornerstone.updateImage(element);
   };
@@ -693,8 +724,8 @@ export default class AIAAPanel extends Component {
 
 
   simulateActiveSegmentClick = (e) => {
-    var radioObj = document.getElementsByName('segitem');
-    var radioLength = radioObj ? radioObj.length : 0;
+    let radioObj = document.getElementsByName('segitem');
+    let radioLength = radioObj ? radioObj.length : 0;
     for (let i = 0; i < radioLength; i++) {
       if (parseInt(radioObj[i].value) === this.state.activeSegmentIndex) {
         radioObj[i].click();
@@ -725,6 +756,7 @@ export default class AIAAPanel extends Component {
       } else {
         console.debug('Keeping segment: ' + meta.SegmentNumber);
         newData.push(meta);
+        // TODO:: this is the last segment?
         firstSegmentIndex = meta.SegmentNumber;
       }
     }
@@ -746,8 +778,6 @@ export default class AIAAPanel extends Component {
       activeSegmentIndex,
       labelmap3D,
     });
-
-    this.state.activeSegmentIndex = activeSegmentIndex;
     this.initPointsAll();
   }
 
@@ -1090,8 +1120,8 @@ export default class AIAAPanel extends Component {
                 title="Segmentation Models:"
                 models={this.state.segModels}
                 currentModel={this.state.currentSegModel}
-                api_call={this.onClickSegBtn}
-                select_call={this.onSelectSegModel}
+                onClick={this.onClickSegBtn}
+                onSelect={this.onSelectSegModel}
                 usage={
                   <p>
                     Fully automated segmentation <b>without any user input</b>.
@@ -1120,9 +1150,9 @@ export default class AIAAPanel extends Component {
                 name="dextr3d"
                 title="Annotation (DExtr3D) Models:"
                 models={this.state.annModels}
-                api_call={this.onClickDExtr3DBtn}
                 currentModel={this.state.currentAnnModel}
-                select_call={this.onSelectAnnModel}
+                onClick={this.onClickDExtr3DBtn}
+                onSelect={this.onSelectAnnModel}
                 usage={
                   <div>
                     <p>
@@ -1156,11 +1186,11 @@ export default class AIAAPanel extends Component {
                 title="DeepGrow Models:"
                 models={this.state.deepgrowModels}
                 currentModel={this.state.currentDeepgrowModel}
-                select_call={this.onSelectDeepgrowModel}
+                onSelect={this.onSelectDeepgrowModel}
                 usage={
                   <div>
                     <p>
-                      You can use deepgrow model to annotate <b>any organ</b>.
+                      You can use DeepGrow model to annotate <b>any organ</b>.
                     </p>
                   </div>
                 }

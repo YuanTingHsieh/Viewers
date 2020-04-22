@@ -9,33 +9,33 @@ export default class AIAATable extends Component {
   static propTypes = {
     name: PropTypes.string,
     title: PropTypes.string,
-    api_call: PropTypes.func,
-    select_call: PropTypes.func,
-    usage: PropTypes.any,
+    onClick: PropTypes.func,
+    onSelect: PropTypes.func,
     models: PropTypes.array,
-    currentModel: PropTypes.any,
+    currentModel: PropTypes.Object,
+    usage: PropTypes.any,
   };
 
   constructor(props) {
     super(props);
 
     this.state = {
-      api_disabled: false,
+      isButtonDisabled: false,
     };
   }
 
   onChangeModel = evt => {
     console.info('Current Selected Model: ' + evt.target.value);
-    this.props.select_call(evt.target.value);
+    this.props.onSelect(evt.target.value);
   };
 
   onClickBtn = async () => {
-    if (this.state.api_disabled) {
+    if (this.state.isButtonDisabled) {
       return;
     }
-    this.setState({api_disabled: true});
-    await this.props.api_call();
-    this.setState({api_disabled: false});
+    this.setState({isButtonDisabled: true});
+    await this.props.onClick();
+    this.setState({isButtonDisabled: false});
   };
 
   render() {
@@ -72,8 +72,8 @@ export default class AIAATable extends Component {
                 name={this.props.name + 'Button'}
                 onClick={this.onClickBtn}
                 title="Run Action"
-                disabled={this.state.api_disabled}
-                style={{display: (this.props.api_call ? 'block' : 'none')}}
+                disabled={this.state.isButtonDisabled}
+                style={{display: (this.props.onClick ? 'block' : 'none')}}
               >
                 <Icon name="brain" width="16px" height="16px" />
               </button>
