@@ -228,20 +228,14 @@ export default class AIAAPanel extends Component {
     const { PatientID, StudyInstanceUID, SeriesInstanceUID } = this.viewConstants;
 
     const cookieId = 'NVIDIA_AIAA_SESSION_ID_' + this.viewConstants.cookiePostfix;
-    console.debug('Using cookieId: ' + cookieId);
-
     let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
-    let c_session_id = AIAAUtils.getAIAACookie(cookieId);
-    console.debug('Session ID from COOKIE: ' + c_session_id);
 
+    let c_session_id = AIAAUtils.getAIAACookie(cookieId);
     if (c_session_id) {
       const response = await aiaaClient.getSession(c_session_id);
-      console.debug('Is session valid (200 OK)?? => ' + response.status);
       if (response.status === 200) {
         return c_session_id;
       }
-
-      console.debug('Invalidate session (as it might have got expired)');
     }
 
     this.notification.show({
@@ -251,10 +245,12 @@ export default class AIAAPanel extends Component {
       duration: 10000,
     });
 
-    // Method 1
-    let response = null;
-    const prefetch = false;
-    if (!prefetch) {
+    let response;
+    if (!this.state.aiaaSettings.dicom.prefetch) {
+      DICOM_SERVER_INFO.server_address = this.state.aiaaSettings.dicom.server_address;
+      DICOM_SERVER_INFO.server_port = this.state.aiaaSettings.dicom.server_port;
+      DICOM_SERVER_INFO.ae_title = this.state.aiaaSettings.dicom.ae_title;
+
       DICOM_SERVER_INFO.patient_id = PatientID;
       DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
       DICOM_SERVER_INFO.study_uid = StudyInstanceUID;
@@ -262,13 +258,11 @@ export default class AIAAPanel extends Component {
 
       response = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
     } else {
-      let aiaaVolume = new AIAAVolume();
-      let volumes = await aiaaVolume.createDicomData(
+      let volumes = await new AIAAVolume().createDicomData(
         studies,
         StudyInstanceUID,
         SeriesInstanceUID,
       );
-      console.debug('data preparation complete');
 
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -288,14 +282,14 @@ export default class AIAAPanel extends Component {
       return null;
     }
 
-    const { session_id } = response.data;
     this.notification.show({
       title: 'NVIDIA AIAA',
       message: 'AIAA Session create success!',
       type: 'success',
     });
 
-    console.debug('Finishing creating session');
+    const { session_id } = response.data;
+    console.info('AIAA Session created: ' + session_id);
     AIAAUtils.setAIAACookie(cookieId, session_id);
     return session_id;
   };
@@ -317,9 +311,6 @@ export default class AIAAPanel extends Component {
 
   onClickSegBtn = async () => {
     const model_name = this.state.currentSegModel ? this.state.currentSegModel.name : null;
-    console.info('On Click Segmentation: ' + model_name);
-    console.info(this.state.currentSegModel);
-
     if (!model_name) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -328,13 +319,10 @@ export default class AIAAPanel extends Component {
       });
       throw Error('Model is not selected');
     }
-
-    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const labels = this.state.currentSegModel.labels;
 
-    // Wait for AIAA session
+    let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const session_id = await this.onCreateOrGetAiaaSession();
-    console.debug('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
     }
@@ -373,9 +361,6 @@ export default class AIAAPanel extends Component {
 
   onClickDExtr3DBtn = async () => {
     const model_name = this.state.currentAnnModel ? this.state.currentAnnModel.name : null;
-    console.info('On DExtr3D: ' + model_name);
-    console.info(this.state.currentAnnModel);
-
     if (!model_name) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -398,7 +383,6 @@ export default class AIAAPanel extends Component {
 
     let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const session_id = await this.onCreateOrGetAiaaSession();
-    console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
     }
@@ -432,9 +416,6 @@ export default class AIAAPanel extends Component {
 
   onDeepgrow = async (sliceIndex) => {
     const model_name = this.state.currentDeepgrowModel ? this.state.currentDeepgrowModel.name : null;
-    console.info('Calling Deepgrow: ' + model_name);
-    console.info(this.state.currentDeepgrowModel);
-
     if (!model_name) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -446,7 +427,6 @@ export default class AIAAPanel extends Component {
 
     let aiaaClient = new AIAAClient(this.state.aiaaSettings.url);
     const session_id = await this.onCreateOrGetAiaaSession();
-    console.info('Using AIAA Session: ' + session_id);
     if (!session_id) {
       return;
     }
@@ -637,7 +617,7 @@ export default class AIAAPanel extends Component {
   /**
    * Removes a segment.
    *
-   * TODO:: fix all segment functionalities
+   * TODO:: fix all segment functionalities (This logic not working on prostate test series with existing dicom segs)
    *
    * @param {int} segmentIndex
    */
@@ -678,15 +658,17 @@ export default class AIAAPanel extends Component {
 
   onSelectActionTab = evt => {
     let selected = evt.currentTarget.value;
-    console.info('Selected: ' + selected);
     if (selected === 'dextr3d') {
       cornerstoneTools.setToolDisabled('DeepgrowProbe', {});
       cornerstoneTools.setToolActive('DExtr3DProbe', { mouseButtonMask: 1 });
+
       this.addEventListeners('nvidia_aiaa_event_DExtr3DProbe', this.dextr3DClickEventHandler);
     } else if (selected === 'deepgrow') {
       cornerstoneTools.setToolDisabled('DExtr3DProbe', {});
       cornerstoneTools.setToolActive('DeepgrowProbe', { mouseButtonMask: 1 });
-      this.addEventListeners('nvidia_aiaa_event_DeepgrowProbe', this.deepgrowClickEventHandler); // cornerstonetoolsmeasurementadded
+
+      // cornerstonetoolsmeasurementadded (also can be handled; better to be specific)
+      this.addEventListeners('nvidia_aiaa_event_DeepgrowProbe', this.deepgrowClickEventHandler);
     } else {
       cornerstoneTools.setToolDisabled('DExtr3DProbe', {});
       cornerstoneTools.setToolDisabled('DeepgrowProbe', {});
@@ -696,8 +678,6 @@ export default class AIAAPanel extends Component {
 
   addEventListeners = (eventName, handler) => {
     this.removeEventListeners();
-    console.info('Adding event: ' + eventName);
-
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.addEventListener(
         eventName,
@@ -712,7 +692,6 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    console.info('Removing event: ' + this.state.currentEvent.name);
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       enabledElement.removeEventListener(
         this.state.currentEvent.name,
@@ -735,10 +714,8 @@ export default class AIAAPanel extends Component {
   };
 
   onClickDeleteSegment = () => {
-    console.debug('Deleting Segment...');
     let { labelmap3D } = this.state;
     if (!labelmap3D) {
-      console.debug('Label Map is NULL');
       return;
     }
 
@@ -746,18 +723,14 @@ export default class AIAAPanel extends Component {
     console.debug('Removing segment: ' + activeSegmentIndex);
 
     let firstSegmentIndex = 0;
+    let newData = [undefined];
 
     const { metadata } = labelmap3D;
-    let newData = [undefined];
     for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
       const meta = labelmap3D.metadata.data[i];
-      if (activeSegmentIndex === meta.SegmentNumber) {
-        console.debug('Removing segment: ' + meta.SegmentNumber);
-      } else {
-        console.debug('Keeping segment: ' + meta.SegmentNumber);
+      if (activeSegmentIndex !== meta.SegmentNumber) {
         newData.push(meta);
-        // TODO:: this is the last segment?
-        firstSegmentIndex = meta.SegmentNumber;
+        firstSegmentIndex = firstSegmentIndex ? firstSegmentIndex : meta.SegmentNumber;
       }
     }
 
@@ -781,16 +754,15 @@ export default class AIAAPanel extends Component {
     this.initPointsAll();
   }
 
+  // TODO:: Delete this test code
   loadNiftiData = async (url) => {
-    console.debug('Fetch Segments (NIFTI)....');
     var response = await axios.get(url, { responseType: 'arraybuffer' });
-
     const niftiReader = new NIFTIReader();
     const { pixelData } = niftiReader.read(response.data);
     return pixelData;
   };
 
-  onClickSaveSegments = async () => {
+  onClickExportSegments = async () => {
     let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
     const pixelData = await this.loadNiftiData(url);
 
@@ -814,19 +786,16 @@ export default class AIAAPanel extends Component {
   };
 
   initPoints = (toolName) => {
-    const { activeSegmentIndex } = this.state;
-    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
-
-    console.debug('Init Points for: ' + toolName + '; ActiveSegment: ' + activeSegmentIndex);
-
     // Clear
     cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
       cornerstoneTools.clearToolState(enabledElement, toolName);
     });
 
     // Add Points
+    const { activeSegmentIndex } = this.state;
+    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
+
     const points = pointsAll.get(activeSegmentIndex);
-    console.debug(points);
     if (points) {
       cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
         for (let i = 0; i < points.length; i++) {
@@ -839,8 +808,7 @@ export default class AIAAPanel extends Component {
     cornerstone.updateImage(this.viewConstants.element);
   };
 
-  resetPoints = (toolName) => {
-    console.info('resetPoints... for: ' + toolName);
+  clearPoints = (toolName) => {
     const { activeSegmentIndex } = this.state;
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
 
@@ -867,9 +835,6 @@ export default class AIAAPanel extends Component {
   };
 
   dextr3DClickEventHandler = async (evt) => {
-    console.info('dextr3DClickEventHandler......');
-    console.info(evt);
-
     if (!evt || !evt.detail) {
       console.info('dextr3DClickEventHandler:: Not a valid event; So Ignore');
       return;
@@ -892,8 +857,6 @@ export default class AIAAPanel extends Component {
     }
 
     points.push(this.getPointData(evt));
-
-    console.info(this.state.extremePoints);
     if (points.length === 1) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -901,18 +864,9 @@ export default class AIAAPanel extends Component {
         type: 'info',
       });
     }
-
-    // TODO:: Make this work...
-    let actionObject = document.getElementsByName('dextr3dButton');
-    console.info(actionObject);
-    console.info(actionObject.disabled);
-    actionObject.disabled = (points.length < 6 || !this.state.currentAnnModel);
   };
 
   deepgrowClickEventHandler = async (evt) => {
-    console.info('deepgrowClickEventHandler......');
-    console.info(evt);
-
     if (!evt || !evt.detail) {
       console.info('deepgrowClickEventHandler:: Not a valid event; So Ignore');
       return;
@@ -937,23 +891,22 @@ export default class AIAAPanel extends Component {
     const pointData = this.getPointData(evt);
     points.push(pointData);
 
-    console.info(this.state.deepgrowPoints);
+    // Run DeepGrow Action for every click
     await this.onDeepgrow(pointData.z);
   };
 
 
   render() {
-    console.debug('Into render......');
-    console.debug(this.state);
-
     return (
       <div className="aiaaPanel">
-        <h3> NVIDIA Clara AIAA Panel</h3>
-        <h4>
-          <u>All Segments:</u>
-        </h4>
         <table>
           <tbody>
+          <tr>
+            <td className="aiaaTitle">NVIDIA Clara AIAA Panel</td>
+          </tr>
+          <tr>
+            <td className="aiaaSubtitle">All Segments:</td>
+          </tr>
           <tr>
             <td>
               <button
@@ -970,6 +923,7 @@ export default class AIAAPanel extends Component {
                 onClick={this.onClickDeleteSegment}
                 id="segDeleteBtn"
                 title="Delete Selected Segment"
+                disabled={this.state.activeSegmentIndex ? false : true}
               >
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
@@ -978,11 +932,11 @@ export default class AIAAPanel extends Component {
             <td align="right">
               <button
                 className="segButton"
-                onClick={this.onClickSaveSegments}
+                onClick={this.onClickExportSegments}
                 title={'Save Segments'}
               >
-                <Icon name="reset" width="12px" height="12px"/>
-                Save
+                <Icon name="angle-double-down" width="12px" height="12px"/>
+                Export
               </button>
             </td>
           </tr>
@@ -1025,7 +979,7 @@ export default class AIAAPanel extends Component {
                   contentEditable="true"
                   suppressContentEditableWarning="true"
                 >
-                  {seg.meta.SegmentDescription} + {(this.state.activeSegmentIndex === seg.index).toString()}
+                  {seg.meta.SegmentDescription}
                 </td>
               </tr>
             ))}
@@ -1059,7 +1013,7 @@ export default class AIAAPanel extends Component {
           <tr>
             <td colSpan="3">
               <a
-                href={this.state.aiaaSettings.url + 'v1/models'}
+                href={this.state.aiaaSettings.url + '/v1/models'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -1069,7 +1023,7 @@ export default class AIAAPanel extends Component {
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
 
               <a
-                href={this.state.aiaaSettings.url + 'logs?lines=100'}
+                href={this.state.aiaaSettings.url + '/logs/?lines=100'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -1156,14 +1110,12 @@ export default class AIAAPanel extends Component {
                 usage={
                   <div>
                     <p>
-                      Generally <b>more accurate</b> but requires user or
-                      segmentation model to <i>select/propose extreme points</i>{' '}
-                      of the organ.
+                      Generally <b>more accurate</b> but requires user provide <i>extreme points</i> of the organ.
                     </p>
+                    <a href="#" onClick={() => this.clearPoints('DExtr3DProbe')}>Clear Points</a>
                   </div>
                 }
               />
-              <a href="#" onClick={this.resetPoints}>Clear Points</a>
             </div>
           </div>
 
@@ -1192,10 +1144,10 @@ export default class AIAAPanel extends Component {
                     <p>
                       You can use DeepGrow model to annotate <b>any organ</b>.
                     </p>
+                    <a href="#" onClick={() => this.clearPoints('DeepgrowProbe')}>Clear Points</a>
                   </div>
                 }
               />
-              <a href="#" onClick={this.resetPoints}>Clear Points</a>
             </div>
           </div>
         </div>

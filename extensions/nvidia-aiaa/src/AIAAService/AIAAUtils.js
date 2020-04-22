@@ -52,7 +52,7 @@ export default class AIAAUtils {
       })
       .catch(function(error) {
         // handle error
-        console.error(error);
+        console.info(error);
         return error;
       })
       .finally(function() {
@@ -79,7 +79,7 @@ export default class AIAAUtils {
       })
       .catch(function(error) {
         // handle error
-        console.error(error);
+        console.info(error);
         return error;
       })
       .finally(function() {

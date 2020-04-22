@@ -1,6 +1,6 @@
 import toolbarModule from './toolbarModule';
 import panelModule from './panelModule.js';
-import sopClassHandlerModule from './OHIFDicomSegSopClassHandler';
+import sopClassHandlerModule from '../../dicom-segmentation/src/OHIFDicomSegSopClassHandler';
 import init from './init';
 import { DeepgrowProbeTool, DExtr3DProbeTool } from './utils/AIAAProbeTool';
 

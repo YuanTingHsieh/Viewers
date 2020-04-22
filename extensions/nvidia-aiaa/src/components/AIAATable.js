@@ -12,7 +12,7 @@ export default class AIAATable extends Component {
     onClick: PropTypes.func,
     onSelect: PropTypes.func,
     models: PropTypes.array,
-    currentModel: PropTypes.Object,
+    currentModel: PropTypes.any,
     usage: PropTypes.any,
   };
 

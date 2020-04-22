@@ -30,18 +30,6 @@ const definitions = [
   },
 ];
 
-/*
-const definitions = [
-  {
-    id: 'NvidiaAIAA',
-    label: 'NVIDIA AIAA',
-    icon: 'dot-circle',
-    type: TOOLBAR_BUTTON_TYPES.SET_TOOL_ACTIVE,
-    commandName: 'setToolActive',
-    commandOptions: { toolName: 'AIAAProbe' },
-  },
-];
-*/
 export default {
   definitions,
   defaultContext: 'ACTIVE_VIEWPORT::CORNERSTONE',
