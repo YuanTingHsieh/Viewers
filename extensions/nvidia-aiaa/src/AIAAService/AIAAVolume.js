@@ -22,23 +22,11 @@ export default class AIAAVolume {
     this.volume = null;
   }
 
-  getOrCreateNifti = async () => {
-    this.volume = await this.createNiftiData();
-    return this.volume;
-  };
-
-  createDicomDataDummy = async () => {
-    return null;
-  };
-
   createDicomData = async (studies, StudyInstanceUID, SeriesInstanceUID) => {
     console.info('createDicomData this takes some time .......');
-
-    console.debug(studies);
     const study = studies.find(
       study => study.StudyInstanceUID === StudyInstanceUID,
     );
-    console.debug(study.displaySets);
 
     const displaySets = study.displaySets.filter(displaySet => {
       return displaySet.SeriesInstanceUID === SeriesInstanceUID;
@@ -48,11 +36,8 @@ export default class AIAAVolume {
       console.warn('More than one display set with the same SeriesInstanceUID. This is not supported yet...');
     }
 
-    const d = displaySets[0];
-    console.debug('ImageSet..............');
-    console.debug(d);
-
     // TODO:: Remove this hack; Instead of fetching it again, get it from imageCache
+    const d = displaySets[0];
     let n = {
       displaySetInstanceUID: d.displaySetInstanceUID,
       SeriesDate: d.SeriesDate,
@@ -90,7 +75,6 @@ export default class AIAAVolume {
       imagesBuffers.push({ data: image_in, name: 'image_' + i + '.dcm' });
     }
 
-    console.debug(imagesBuffers);
     return imagesBuffers;
   };
 
@@ -101,7 +85,6 @@ export default class AIAAVolume {
     let elements = cornerstone.getEnabledElements();
     const element = elements[0].element;
     const stackState = cornerstoneTools.getToolState(element, 'stack');
-    console.debug(stackState);
 
     // all of the image ids
     const imageIds = stackState.data[0].imageIds;
@@ -114,8 +97,6 @@ export default class AIAAVolume {
       const images = await Promise.all(loadImagePromises);
       let firstImage = images[0];
 
-      console.debug('First image is ');
-      console.debug(firstImage);
       this.metadata.slope = firstImage.slope;
       this.metadata.intercept = firstImage.intercept;
       this.metadata.rows = firstImage.rows;
@@ -127,7 +108,6 @@ export default class AIAAVolume {
       this.metadata.sliceThickness = firstImage.sliceThickness;
       if (this.metadata.sliceThickness === undefined) {
         this.metadata.sliceThickness = 1;
-        console.debug('Data error, no slice thickness in metadata!');
       }
 
       // TODO (Yuan-Ting): How to get correct image position patient from OHIF?
@@ -144,24 +124,25 @@ export default class AIAAVolume {
       const x = this.metadata.columns;
       const y = this.metadata.rows;
       const z = this.metadata.nSlices;
+
       a = new Int16Array(x * y * z);
-      // volDim =[z,x,y];
       for (let i = 0; i < z; i++) {
         let slPix = images[i].getPixelData();
-        //OHIF.NVIDIA.dataVol.push('slPix'); //just a hack to stop sending dbuffer before filling up
         for (let j = 0; j < x * y; j++) {
           a[i * x * y + j] = slPix[j];
-          // a[i*x*y+j]=slPix[x*y-j-1];
         }
       }
-      console.debug('createDataVol completed .......');
-      return a;
+      console.info('createNiftiData completed .......');
+
+      let niiArray = this.buffer2NiiArr(a);
+      let image_in = new Blob([niiArray], { type: 'application/octet-stream' });
+      return { data: image_in, name: 'image.nii' };
     } catch (error) {
-      console.error('Error in createDataVol ' + error);
+      console.error('Error in createNiftiData ' + error);
     }
   };
 
-  buffer2NiiArr = (buff, debug = false) => {
+  buffer2NiiArr = (buff) => {
     const resolution = [
       this.metadata.rowPixelSpacing,
       this.metadata.columnPixelSpacing,
@@ -181,24 +162,7 @@ export default class AIAAVolume {
       this.metadata.slope,
       this.metadata.intercept,
     );
-    if (debug) {
-      this.downloadNiiArrLocally(niiArray);
-    }
     return niiArray;
-  };
-
-  downloadNiiArrLocally = arr => {
-    let blob = new Blob([arr]);
-    let blobUrl = window.URL.createObjectURL(blob);
-
-    this.downloadFile(blobUrl, 'image2AIAA.nii');
-  };
-
-  downloadFile = (data, fileName) => {
-    let link = document.createElement('a');
-    link.href = data;
-    link.download = fileName;
-    link.click();
   };
 
   /**

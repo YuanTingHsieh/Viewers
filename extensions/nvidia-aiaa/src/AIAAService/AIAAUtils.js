@@ -46,17 +46,13 @@ export default class AIAAUtils {
     return axios
       .get(url)
       .then(function(response) {
-        // handle success
         console.info(response);
         return response;
       })
       .catch(function(error) {
-        // handle error
-        console.info(error);
         return error;
       })
       .finally(function() {
-        // always executed
       });
   }
 
@@ -68,22 +64,17 @@ export default class AIAAUtils {
         responseType: 'arraybuffer', // direct receive as buffer array
 
         headers: {
-          'Content-Type': ((file) ? 'multipart/form-data' : 'application/json'),
           accept: 'multipart/form-data',
         },
       })
       .then(function(response) {
-        // handle success
         console.info(response);
         return response;
       })
       .catch(function(error) {
-        // handle error
-        console.info(error);
         return error;
       })
       .finally(function() {
-        // always executed
       });
   }
 
@@ -92,20 +83,16 @@ export default class AIAAUtils {
     let data = constructFormOrJsonData(params, file);
     return axios
       .put(url, data, {
-        responseType: 'application/json',
+        responseType: 'json',
         headers: {
-          'Content-Type': ((file) ? 'multipart/form-data' : 'application/json'),
           accept: 'application/json',
         },
       })
       .then(function(response) {
-        // handle success
         console.info(response);
         return response;
       })
       .catch(function(error) {
-        // handle error
-        console.error(error);
         return error;
       });
   }
@@ -125,7 +112,7 @@ export default class AIAAUtils {
 
   static getAIAACookie(name, defaultVal = '') {
     const val = _getCookie(name);
-    console.info(name + ' = ' + val + ' (default: ' + defaultVal + ' )');
+    console.debug(name + ' = ' + val + ' (default: ' + defaultVal + ' )');
     if (!val) {
       return defaultVal;
     }

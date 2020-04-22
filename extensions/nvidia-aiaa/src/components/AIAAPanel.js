@@ -258,11 +258,20 @@ export default class AIAAPanel extends Component {
 
       response = await aiaaClient.createSession(null, DICOM_SERVER_INFO);
     } else {
-      let volumes = await new AIAAVolume().createDicomData(
-        studies,
-        StudyInstanceUID,
-        SeriesInstanceUID,
-      );
+      const useNifti = false;
+      let volumes;
+      if (useNifti) {
+        // TODO:: Current NIFTI data when we load in MITK (from aiaa session) it's blurr
+        //        Is our NIFTI Data creation Robust? We need to verify it (otherwise, have settings to use nifti/dicom)
+        //        Otherwise this can be fast (as all image slices are locally loaded by cornerstone and cached)
+        volumes = await new AIAAVolume().createNiftiData();
+      } else {
+        volumes = await new AIAAVolume().createDicomData(
+          studies,
+          StudyInstanceUID,
+          SeriesInstanceUID,
+        );
+      }
 
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -999,11 +1008,13 @@ export default class AIAAPanel extends Component {
           </tr>
           <tr>
             <td colSpan="3">
-              <a href={this.state.aiaaSettings.url + '/v1/models'} target="_blank" rel="noopener noreferrer">
+              <a href={new URL(this.state.aiaaSettings.url).toString() + 'v1/models'} target="_blank"
+                 rel="noopener noreferrer">
                 All models
               </a>
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
-              <a href={this.state.aiaaSettings.url + '/logs/?lines=100'} target="_blank" rel="noopener noreferrer">
+              <a href={new URL(this.state.aiaaSettings.url).toString() + 'logs/?lines=100'} target="_blank"
+                 rel="noopener noreferrer">
                 AIAA Logs
               </a>
             </td>
