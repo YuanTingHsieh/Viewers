@@ -1,10 +1,7 @@
 import nifti from 'nifti-reader-js';
 
 export default class NIFTIReader {
-  constructor() {
-  }
-
-  read(data) {
+  static parseData(data) {
     if (nifti.isCompressed(data)) {
       data = nifti.decompress(data);
     }
@@ -14,16 +11,9 @@ export default class NIFTIReader {
 
     const niftiHeader = nifti.readHeader(data);
     const niftiImage = nifti.readImage(niftiHeader, data);
-
-    console.debug('NIFTI Header');
-    console.debug(niftiHeader.toFormattedString());
-
-    console.debug('NIFTI Image');
-    console.debug(niftiImage);
-
     const pixelData = NIFTIReader.getPixelData(niftiHeader, niftiImage);
-    console.debug('Pixel Data');
-    console.debug(pixelData);
+
+    console.debug(niftiHeader.toFormattedString());
 
     return {
       niftiHeader,

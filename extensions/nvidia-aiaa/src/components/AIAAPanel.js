@@ -102,9 +102,9 @@ export default class AIAAPanel extends Component {
   }
 
   getAIAASettings = () => {
-    const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://0.0.0.0:5678/');
+    const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://10.110.46.111:5678/');
     const prefetch = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DICOM_PREFETCH', false);
-    const server_address = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', '0.0.0.0');
+    const server_address = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', '10.110.46.111');
     const server_port = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DICOM_SERVER_PORT', 11112);
     const ae_title = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_AE_TITLE', 'DCM4CHEE');
 
@@ -470,8 +470,7 @@ export default class AIAAPanel extends Component {
    * @param {Array} [labels] An array of label names
    */
   updateView = async (response, labels) => {
-    const niftiReader = new NIFTIReader();
-    const { pixelData } = niftiReader.read(response.data);
+    const { pixelData } = NIFTIReader.parseData(response.data);
 
     if (labels) {
       for (let i = 0; i < labels.length; i++) {
@@ -480,10 +479,8 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    const { firstImageId } = this.viewConstants;
-    const { labelmap3D } = getSegmentList(firstImageId);
-    const element = getElementFromFirstImageId(firstImageId);
-    this.updateSegment(pixelData, labelmap3D, element);
+    const { labelmap3D } = getSegmentList(this.viewConstants.firstImageId);
+    this.updateSegment(pixelData, labelmap3D, this.viewConstants.element);
   };
 
   /**
@@ -617,13 +614,14 @@ export default class AIAAPanel extends Component {
   /**
    * Removes a segment.
    *
-   * TODO:: fix all segment functionalities (This logic not working on prostate test series with existing dicom segs)
+   * TODO:: fix all segment functionalities
+   *       (This logic is current not working on prostate test series and for liver segs)
+   *       wrong again? possibily need to fix segmentationIndex  vs labelMapIndex logic correctly
    *
    * @param {int} segmentIndex
    */
   removeSegment = segmentIndex => {
     const { firstImageId } = this.viewConstants;
-    const element = getElementFromFirstImageId(firstImageId);
 
     const segmentationModule = cornerstoneTools.getModule('segmentation');
     const brushStackState = segmentationModule.state.series[firstImageId];
@@ -631,7 +629,8 @@ export default class AIAAPanel extends Component {
       console.error('No brush state in cornerstone, something is wrong');
     }
     brushStackState.labelmaps3D = brushStackState.labelmaps3D.filter((value, i) => i !== segmentIndex);
-    cornerstone.updateImage(element);
+
+    cornerstone.updateImage(this.viewConstants.element);
   };
 
   onClickAddSegment = () => {
@@ -639,10 +638,9 @@ export default class AIAAPanel extends Component {
     this.refreshSegTable();
   };
 
+  //TODO:: fix activeSegmentIndex logic.. and clean up
   onSelectSegment = evt => {
     const activeSegmentIndex = parseInt(evt.currentTarget.value);
-    console.debug('Set activeSegmentIndex: ' + activeSegmentIndex);
-
     const labelmap3D = this.state.labelmap3D;
     if (labelmap3D) {
       labelmap3D.activeSegmentIndex = activeSegmentIndex;
@@ -651,7 +649,6 @@ export default class AIAAPanel extends Component {
     const { setters } = cornerstoneTools.getModule('segmentation');
     setters.activeSegmentIndex(this.viewConstants.element, activeSegmentIndex);
 
-    //TODO:: this is immediate... setState is async
     this.state.activeSegmentIndex = activeSegmentIndex;
     this.initPointsAll();
   };
@@ -720,12 +717,11 @@ export default class AIAAPanel extends Component {
     }
 
     const { activeSegmentIndex } = this.state;
-    console.debug('Removing segment: ' + activeSegmentIndex);
+    const { metadata } = labelmap3D;
 
     let firstSegmentIndex = 0;
     let newData = [undefined];
 
-    const { metadata } = labelmap3D;
     for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
       const meta = labelmap3D.metadata.data[i];
       if (activeSegmentIndex !== meta.SegmentNumber) {
@@ -741,7 +737,7 @@ export default class AIAAPanel extends Component {
     this.removeSegment(activeSegmentIndex);
   };
 
-  refreshSegTable(updateImage = true) {
+  refreshSegTable = () => {
     const { firstImageId } = this.viewConstants;
     const segmentList = getSegmentList(firstImageId);
     const { segments, activeSegmentIndex, labelmap3D } = segmentList;
@@ -752,16 +748,16 @@ export default class AIAAPanel extends Component {
       labelmap3D,
     });
     this.initPointsAll();
-  }
+  };
 
   // TODO:: Delete this test code
   loadNiftiData = async (url) => {
     var response = await axios.get(url, { responseType: 'arraybuffer' });
-    const niftiReader = new NIFTIReader();
-    const { pixelData } = niftiReader.read(response.data);
+    const { pixelData } = NIFTIReader.parseData(response.data);
     return pixelData;
   };
 
+  // TODO:: Something wrong with the createSegment logic (spleen mask is green color)
   onClickExportSegments = async () => {
     let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
     const pixelData = await this.loadNiftiData(url);
@@ -824,13 +820,10 @@ export default class AIAAPanel extends Component {
   };
 
   getPointData = (evt) => {
-    console.debug(evt);
-
     const { x, y, imageId } = evt.detail;
     const z = this.viewConstants.imageIdsToIndex.get(imageId);
 
-    console.debug('ImageId: ' + imageId);
-    console.info('X: ' + x + '; Y: ' + y + '; Z: ' + z);
+    console.debug('X: ' + x + '; Y: ' + y + '; Z: ' + z);
     return { x, y, z, data: evt.detail };
   };
 
@@ -857,10 +850,11 @@ export default class AIAAPanel extends Component {
     }
 
     points.push(this.getPointData(evt));
+
     if (points.length === 1) {
       this.notification.show({
         title: 'NVIDIA AIAA',
-        message: 'Keep Adding more extreme points (Min Required: 6)',
+        message: 'Continue adding more extreme points (Min Required: 6)',
         type: 'info',
       });
     }
@@ -891,7 +885,7 @@ export default class AIAAPanel extends Component {
     const pointData = this.getPointData(evt);
     points.push(pointData);
 
-    // Run DeepGrow Action for every click
+    //TODO:: Should I wait here?
     await this.onDeepgrow(pointData.z);
   };
 
@@ -968,17 +962,10 @@ export default class AIAAPanel extends Component {
                 <td>
                   <ColoredCircle color={seg.color}/>
                 </td>
-                <td
-                  className="segEdit"
-                  contentEditable="true"
-                  suppressContentEditableWarning="true"
-                >
+                <td className="segEdit" contentEditable="true" suppressContentEditableWarning="true">
                   {seg.meta.SegmentLabel}
                 </td>
-                <td
-                  contentEditable="true"
-                  suppressContentEditableWarning="true"
-                >
+                <td contentEditable="true" suppressContentEditableWarning="true">
                   {seg.meta.SegmentDescription}
                 </td>
               </tr>
@@ -1012,21 +999,11 @@ export default class AIAAPanel extends Component {
           </tr>
           <tr>
             <td colSpan="3">
-              <a
-                href={this.state.aiaaSettings.url + '/v1/models'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={this.state.aiaaSettings.url + '/v1/models'} target="_blank" rel="noopener noreferrer">
                 All models
               </a>
-
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
-
-              <a
-                href={this.state.aiaaSettings.url + '/logs/?lines=100'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={this.state.aiaaSettings.url + '/logs/?lines=100'} target="_blank" rel="noopener noreferrer">
                 AIAA Logs
               </a>
             </td>
@@ -1064,9 +1041,7 @@ export default class AIAAPanel extends Component {
               onClick={this.onSelectActionTab}
               defaultChecked
             />
-            <label htmlFor="tab-1" className="tab-label">
-              Segmentation
-            </label>
+            <label htmlFor="tab-1" className="tab-label">Segmentation</label>
 
             <div className="tab-content">
               <AIAATable
@@ -1095,9 +1070,7 @@ export default class AIAAPanel extends Component {
               value="dextr3d"
               onClick={this.onSelectActionTab}
             />
-            <label htmlFor="tab-2" className="tab-label">
-              DExtr3D
-            </label>
+            <label htmlFor="tab-2" className="tab-label">DExtr3D</label>
 
             <div className="tab-content">
               <AIAATable
@@ -1128,9 +1101,7 @@ export default class AIAAPanel extends Component {
               value="deepgrow"
               onClick={this.onSelectActionTab}
             />
-            <label htmlFor="tab-3" className="tab-label">
-              DeepGrow
-            </label>
+            <label htmlFor="tab-3" className="tab-label">DeepGrow</label>
 
             <div className="tab-content">
               <AIAATable
