@@ -200,8 +200,10 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
   const labelmaps2D = labelmap3D.labelmaps2D;
   const slicelengthInBytes = buffer.byteLength / numberOfFrames;
 
-  if (!labelmaps2D.length || !labelmaps2D[0].segmentsOnLabelmap || !labelmaps2D[0].segmentsOnLabelmap.length) {
-    console.info('First time update...');
+  // TODO:: Fix this correctly...
+  if (!labelmaps2D.length || labelmaps2D.length < 1 || !labelmaps2D[0]
+    || !labelmaps2D[0].segmentsOnLabelmap || !labelmaps2D[0].segmentsOnLabelmap.length) {
+    console.debug('First time update...');
     operation = undefined;
   }
 
