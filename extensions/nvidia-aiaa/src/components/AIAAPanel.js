@@ -14,15 +14,15 @@ import Collapsible from './Collapsible';
 
 import { AIAAClient, AIAAUtils, AIAAVolume } from '../AIAAService';
 import {
-  getElementFromFirstImageId,
+  createSegment,
+  deleteSegment,
   getImageIdsForDisplaySet,
-  getNextLabelmapIndex,
   getSegmentList,
+  updateSegment,
 } from '../utils/genericUtils';
 import NIFTIReader from '../utils/NIFTIReader';
 
-//const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
-//const { drawBrushPixels, getCircle } = segmentationUtils;
+const { getters, setters } = cornerstoneTools.getModule('segmentation');
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -67,22 +67,14 @@ export default class AIAAPanel extends Component {
 
     console.debug(props);
     const { viewports, studies, activeIndex } = props;
-    console.debug('activeIndex = ' + activeIndex);
 
     this.viewConstants = this.getViewConstants(viewports, studies, activeIndex);
-
     const aiaaSettings = this.getAIAASettings();
-    const segmentList = getSegmentList(this.viewConstants.firstImageId);
-    const segments = segmentList.segments;
-    const activeSegmentIndex = segmentList.activeSegmentIndex;
-    const labelmap3D = segmentList.labelmap3D;
+    const segments = getSegmentList(this.viewConstants.element);
 
     this.state = {
       aiaaSettings: aiaaSettings,
-      // segments
       segments: segments,
-      activeSegmentIndex: activeSegmentIndex,
-      labelmap3D: labelmap3D,
       //
       segModels: [],
       annModels: [],
@@ -94,6 +86,7 @@ export default class AIAAPanel extends Component {
       deepgrowPoints: new Map(),
       //
       currentEvent: null,
+      aiaaOpInProgress: false,
     };
   }
 
@@ -103,6 +96,9 @@ export default class AIAAPanel extends Component {
 
   getAIAASettings = () => {
     const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://10.110.46.111:5678/');
+    const multi_label = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_MULTI_LABEL', false);
+    const min_points = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', 6);
+    const auto_run = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', true);
     const prefetch = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DICOM_PREFETCH', false);
     const server_address = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', '10.110.46.111');
     const server_port = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DICOM_SERVER_PORT', 11112);
@@ -110,6 +106,11 @@ export default class AIAAPanel extends Component {
 
     return {
       url: url,
+      multi_label: multi_label,
+      dextr3d: {
+        min_points: min_points,
+        auto_run: auto_run,
+      },
       dicom: {
         prefetch: prefetch,
         server_address: server_address,
@@ -122,6 +123,9 @@ export default class AIAAPanel extends Component {
   saveAIAASettings = () => {
     const { aiaaSettings } = this.state;
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', aiaaSettings.url);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_MULTI_LABEL', aiaaSettings.multi_label);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d.min_points);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', aiaaSettings.dextr3d.auto_run);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_PREFETCH', aiaaSettings.dicom.prefetch);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', aiaaSettings.dicom.server_address);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_PORT', aiaaSettings.dicom.server_port);
@@ -147,7 +151,7 @@ export default class AIAAPanel extends Component {
       imageIdsToIndex.set(imageIds[i], i);
     }
 
-    const element = getElementFromFirstImageId(firstImageId);
+    const element = cornerstone.getEnabledElements()[this.props.activeIndex].element;
     const cookiePostfix = new MD5().update(PatientID + StudyInstanceUID + SeriesInstanceUID).digest('hex');
 
     return {
@@ -158,6 +162,7 @@ export default class AIAAPanel extends Component {
       firstImageId: firstImageId,
       imageIdsToIndex: imageIdsToIndex,
       element: element,
+      numberOfFrames: imageIds.length,
       cookiePostfix: cookiePostfix,
     };
   };
@@ -250,7 +255,6 @@ export default class AIAAPanel extends Component {
       DICOM_SERVER_INFO.server_address = this.state.aiaaSettings.dicom.server_address;
       DICOM_SERVER_INFO.server_port = this.state.aiaaSettings.dicom.server_port;
       DICOM_SERVER_INFO.ae_title = this.state.aiaaSettings.dicom.ae_title;
-
       DICOM_SERVER_INFO.patient_id = PatientID;
       DICOM_SERVER_INFO.series_uid = SeriesInstanceUID;
       DICOM_SERVER_INFO.study_uid = StudyInstanceUID;
@@ -318,7 +322,36 @@ export default class AIAAPanel extends Component {
     this.setState({ currentDeepgrowModel });
   };
 
+  getActiveIndex = () => {
+    const labelmapIndex = getters.activeLabelmapIndex(this.viewConstants.element);
+    const segmentIndex = getters.activeSegmentIndex(this.viewConstants.element);
+    const id = labelmapIndex + '+' + segmentIndex;
+    return { id, labelmapIndex, segmentIndex };
+  };
+
+  setActiveIndex = (labelmapIndex, segmentIndex) => {
+    setters.activeLabelmapIndex(this.viewConstants.element, labelmapIndex);
+    setters.activeSegmentIndex(this.viewConstants.element, segmentIndex);
+  };
+
+  setActiveIndexById = (id) => {
+    let index = id.split('+').map(Number);
+    this.setActiveIndex(index[0], index[1]);
+  };
+
+  getSelectedActiveIndex = () => {
+    const obj = document.querySelector('input[name="segitem"]:checked');
+    if (obj) {
+      const id = obj.value;
+      let index = id.split('+').map(Number);
+      return { id, labelmapIndex: index[0], segmentIndex: index[1] };
+    }
+    return null;
+  };
+
   onClickSegBtn = async () => {
+    // TODO:: Disable Everything like Segmentation/Dextra/Deepgrow/OnSelectSegmentation
+    //        Or use callback to update the correct LabelMapIndex/SegmentIndex (2nd preferred)
     const model_name = this.state.currentSegModel ? this.state.currentSegModel.name : null;
     if (!model_name) {
       this.notification.show({
@@ -343,11 +376,13 @@ export default class AIAAPanel extends Component {
       duration: 10000,
     });
 
+    this.setState({ aiaaOpInProgress: true });
     let response = await aiaaClient.segmentation(
       model_name,
       null,
       session_id,
     );
+    this.setState({ aiaaOpInProgress: false });
 
     if (response.status !== 200) {
       this.notification.show({
@@ -359,7 +394,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    await this.updateView(response, labels);
+    await this.updateView(null, response, labels);
 
     this.notification.show({
       title: 'NVIDIA AIAA',
@@ -379,7 +414,8 @@ export default class AIAAPanel extends Component {
       throw Error('Model is not selected');
     }
 
-    const points = this.state.extremePoints.get(this.state.activeSegmentIndex);
+    const activeIndex = this.getSelectedActiveIndex();
+    const points = this.state.extremePoints.get(activeIndex.id);
     const pts = points.map(p => [p.x, p.y, p.z]);
     if (pts.length < 6) {
       this.notification.show({
@@ -403,12 +439,14 @@ export default class AIAAPanel extends Component {
       duration: 2000,
     });
 
+    this.setState({ aiaaOpInProgress: true });
     let response = await aiaaClient.dextr3d(
       model_name,
       pts,
       null,
       session_id,
     );
+    this.setState({ aiaaOpInProgress: false });
 
     if (response.status !== 200) {
       this.notification.show({
@@ -420,7 +458,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    await this.updateView(response);
+    await this.updateView(activeIndex, response, null);
   };
 
   onDeepgrow = async (sliceIndex) => {
@@ -447,10 +485,12 @@ export default class AIAAPanel extends Component {
       duration: 2000,
     });
 
-    const points = this.state.deepgrowPoints.get(this.state.activeSegmentIndex);
+    const activeIndex = this.getSelectedActiveIndex();
+    const points = this.state.deepgrowPoints.get(activeIndex.id);
     const fg = points.filter(p => p.z === sliceIndex && !p.data.ctrlKey).map(p => [p.x, p.y, p.z]);
     const bg = points.filter(p => p.z === sliceIndex && p.data.ctrlKey).map(p => [p.x, p.y, p.z]);
 
+    this.setState({ aiaaOpInProgress: true });
     let response = await aiaaClient.deepgrow(
       model_name,
       fg,
@@ -458,6 +498,7 @@ export default class AIAAPanel extends Component {
       null,
       session_id,
     );
+    this.setState({ aiaaOpInProgress: false });
 
     if (response.status !== 200) {
       this.notification.show({
@@ -469,7 +510,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    await this.updateView(response);
+    await this.updateView(activeIndex, response, null, 'override', sliceIndex);
   };
 
   /**
@@ -478,187 +519,53 @@ export default class AIAAPanel extends Component {
    * @param {Object} response
    * @param {Array} [labels] An array of label names
    */
-  updateView = async (response, labels) => {
+  updateView = async (activeIndex, response, labels, operation, slice) => {
+    const { element, numberOfFrames } = this.viewConstants;
     const { pixelData } = NIFTIReader.parseData(response.data);
 
     if (labels) {
       for (let i = 0; i < labels.length; i++) {
-        this.createSegment(labels[i], (i === 0 ? pixelData : null));
-      }
-      return;
-    }
-
-    const { labelmap3D } = getSegmentList(this.viewConstants.firstImageId);
-    this.updateSegment(pixelData, labelmap3D, this.viewConstants.element);
-  };
-
-  /**
-   * Creates a segment.
-   *
-   * TODO:: Clean this up
-   *   1. state immutability need to be considered
-   *   2. we might just get Labelmap3D from cornerstone since it will also update
-   *      the data structure instead of we keeping a copy of that here
-   *   3. The only thing we want to keep might just be the metadata
-   *
-   * @param {String} [name] Segment name
-   * @param {ArrayBuffer} [labelmapBuffer]
-   */
-  createSegment(name, labelmapBuffer) {
-    console.debug('Creating New Segment...');
-
-    let { labelmap3D } = this.state;
-    const { firstImageId, SeriesInstanceUID } = this.viewConstants;
-
-    // AIAA can update some of the following from the output (DICOM-SEG) of deepgrow/dextr3d
-    const newMetadata = {
-      SegmentedPropertyCategoryCodeSequence: {
-        CodeValue: 'T-D000A',
-        CodingSchemeDesignator: 'SRT',
-        CodeMeaning: 'Anatomical Structure',
-      },
-      SegmentNumber: 1,
-      SegmentLabel: (name ? name : 'label-1'),
-      SegmentDescription: '',
-      SegmentAlgorithmType: 'AUTOMATIC',
-      SegmentAlgorithmName: 'CNN',
-    };
-
-    console.debug('newMetadata.....');
-    console.debug(newMetadata);
-
-    if (labelmap3D) {
-      console.debug('Label Map is NOT NULL');
-      const { metadata } = labelmap3D;
-
-      let ids = [0];
-      for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
-        ids.push(labelmap3D.metadata.data[i].SegmentNumber);
-      }
-      let maxSegmentId = Math.max.apply(Math, ids);
-      console.debug('Current Segments: ' + ids);
-      console.debug('Max Segment: ' + maxSegmentId);
-
-      newMetadata.SegmentNumber = maxSegmentId + 1;
-      newMetadata.SegmentLabel = (name ? name : ('label_' + newMetadata.SegmentNumber));
-      metadata.data.push(newMetadata);
-
-      labelmap3D.activeSegmentIndex = metadata.data.length - 1;
-    } else {
-      console.debug('Label Map is NULL');
-      const element = getElementFromFirstImageId(firstImageId);
-      const segmentationModule = cornerstoneTools.getModule('segmentation');
-      const labelmap2D = segmentationModule.getters.labelmap2D(element);
-      labelmap3D = labelmap2D.labelmap3D;
-      const { metadata } = labelmap3D;
-
-      metadata.seriesInstanceUid = SeriesInstanceUID;
-      metadata.data = [undefined, newMetadata]; // always 1st one is empty
-
-      labelmap3D.activeSegmentIndex = 1;
-    }
-
-    const { setters } = cornerstoneTools.getModule('segmentation');
-    const element = getElementFromFirstImageId(firstImageId);
-    setters.activeSegmentIndex(element, labelmap3D.activeSegmentIndex);
-
-    if (labelmapBuffer) {
-      this.updateSegment(labelmapBuffer, labelmap3D, element);
-    }
-
-    // Update State...
-    const { segments, activeSegmentIndex } = getSegmentList(this.viewConstants.firstImageId);
-    this.setState({
-      segments,
-      activeSegmentIndex,
-      labelmap3D,
-    });
-  }
-
-  /**
-   * Update segments data and view.
-   *
-   * Refer to https://tools.cornerstonejs.org/modules/#segmentation for details
-   *
-   * @param {ArrayBuffer} labelmapBuffer A 16-bit encoded `ArrayBuffer`
-   * @param labelmap3D
-   * @param element
-   */
-  updateSegment(labelmapBuffer, labelmap3D, element) {
-    const { studies } = this.props;
-    const { StudyInstanceUID, SeriesInstanceUID } = this.viewConstants;
-
-    const imageIds = getImageIdsForDisplaySet(studies, StudyInstanceUID, SeriesInstanceUID);
-
-    // TODO:: Fix for deepgrow (merge slice/previous mask)
-    const labelmapIndex = getNextLabelmapIndex(imageIds[0]);
-    const { metadata } = labelmap3D;
-
-    const activeSegmentIndex = this.state.activeSegmentIndex;
-    const segmentOffset = activeSegmentIndex - 1;
-    console.info('labelmapIndex: ' + labelmapIndex + '; activeSegmentIndex: ' + activeSegmentIndex + '; segmentOffset: ' + segmentOffset);
-
-    if (segmentOffset > 0) {
-      let z = new Uint16Array(labelmapBuffer);
-      for (let i = 0; i < z.length; i++) {
-        if (z[i] > 0) {
-          z[i] = z[i] + segmentOffset;
+        const resp = createSegment(element, labels[i], this.state.aiaaSettings.multi_label);
+        if (i === 0) {
+          activeIndex = resp;
         }
       }
+      this.refreshSegTable();
     }
 
-    // refer to: https://github.com/cornerstonejs/cornerstoneTools/blob/master/src/store/modules/segmentationModule/setLabelmap3D.js#L72
-    const { setters } = cornerstoneTools.getModule('segmentation');
-    setters.labelmap3DByFirstImageId(
-      imageIds[0],
-      labelmapBuffer,
-      activeSegmentIndex,
-      metadata,
-      imageIds.length,
-    );
-
-    cornerstone.updateImage(element);
-  }
-
-  /**
-   * Removes a segment.
-   *
-   * TODO:: fix all segment functionalities
-   *       (This logic is current not working on prostate test series and for liver segs)
-   *       wrong again? possibily need to fix segmentationIndex  vs labelMapIndex logic correctly
-   *
-   * @param {int} segmentIndex
-   */
-  removeSegment = segmentIndex => {
-    const { firstImageId } = this.viewConstants;
-
-    const segmentationModule = cornerstoneTools.getModule('segmentation');
-    const brushStackState = segmentationModule.state.series[firstImageId];
-    if (!brushStackState) {
-      console.error('No brush state in cornerstone, something is wrong');
+    if (!operation && !this.state.aiaaSettings.multi_label) {
+      operation = 'overlap';
     }
-    brushStackState.labelmaps3D = brushStackState.labelmaps3D.filter((value, i) => i !== segmentIndex);
 
-    cornerstone.updateImage(this.viewConstants.element);
+    updateSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex, pixelData, numberOfFrames, operation, slice);
   };
 
   onClickAddSegment = () => {
-    this.createSegment();
+    const { element } = this.viewConstants;
+    createSegment(element, undefined, this.state.aiaaSettings.multi_label);
+
     this.refreshSegTable();
   };
 
-  //TODO:: fix activeSegmentIndex logic.. and clean up
   onSelectSegment = evt => {
-    const activeSegmentIndex = parseInt(evt.currentTarget.value);
-    const labelmap3D = this.state.labelmap3D;
-    if (labelmap3D) {
-      labelmap3D.activeSegmentIndex = activeSegmentIndex;
-    }
+    let id = evt.currentTarget.value;
+    this.setActiveIndexById(id);
+    this.initPointsAll();
+  };
 
-    const { setters } = cornerstoneTools.getModule('segmentation');
-    setters.activeSegmentIndex(this.viewConstants.element, activeSegmentIndex);
+  onClickDeleteSegment = () => {
+    const activeIndex = this.getSelectedActiveIndex();
+    this.clearPointsAll(activeIndex);
 
-    this.state.activeSegmentIndex = activeSegmentIndex;
+    const { element } = this.viewConstants;
+    deleteSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex);
+    this.refreshSegTable();
+  };
+
+  refreshSegTable = () => {
+    const segments = getSegmentList(this.viewConstants.element);
+    this.setState({ segments });
+
     this.initPointsAll();
   };
 
@@ -678,18 +585,16 @@ export default class AIAAPanel extends Component {
     } else {
       cornerstoneTools.setToolDisabled('DExtr3DProbe', {});
       cornerstoneTools.setToolDisabled('DeepgrowProbe', {});
+
       this.removeEventListeners();
     }
   };
 
   addEventListeners = (eventName, handler) => {
     this.removeEventListeners();
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      enabledElement.addEventListener(
-        eventName,
-        handler,
-      );
-    });
+
+    const { element } = this.viewConstants;
+    element.addEventListener(eventName, handler);
     this.setState({ currentEvent: { name: eventName, handler: handler } });
   };
 
@@ -698,134 +603,63 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      enabledElement.removeEventListener(
-        this.state.currentEvent.name,
-        this.state.currentEvent.handler,
-      );
-    });
+    const { element } = this.viewConstants;
+    const { currentEvent } = this.state;
+
+    element.removeEventListener(currentEvent.name, currentEvent.handler);
     this.setState({ currentEvent: null });
   };
 
-
-  simulateActiveSegmentClick = (e) => {
-    let radioObj = document.getElementsByName('segitem');
-    let radioLength = radioObj ? radioObj.length : 0;
-    for (let i = 0; i < radioLength; i++) {
-      if (parseInt(radioObj[i].value) === this.state.activeSegmentIndex) {
-        radioObj[i].click();
-        break;
-      }
-    }
-  };
-
-  onClickDeleteSegment = () => {
-    let { labelmap3D } = this.state;
-    if (!labelmap3D) {
-      return;
-    }
-
-    const { activeSegmentIndex } = this.state;
-    const { metadata } = labelmap3D;
-
-    let firstSegmentIndex = 0;
-    let newData = [undefined];
-
-    for (let i = 1; i < labelmap3D.metadata.data.length; i++) {
-      const meta = labelmap3D.metadata.data[i];
-      if (activeSegmentIndex !== meta.SegmentNumber) {
-        newData.push(meta);
-        firstSegmentIndex = firstSegmentIndex ? firstSegmentIndex : meta.SegmentNumber;
-      }
-    }
-
-    metadata.data = newData;
-    labelmap3D.activeSegmentIndex = firstSegmentIndex;
-
-    this.refreshSegTable();
-    this.removeSegment(activeSegmentIndex);
-  };
-
-  refreshSegTable = () => {
-    const { firstImageId } = this.viewConstants;
-    const segmentList = getSegmentList(firstImageId);
-    const { segments, activeSegmentIndex, labelmap3D } = segmentList;
-
-    this.setState({
-      segments,
-      activeSegmentIndex,
-      labelmap3D,
-    });
-    this.initPointsAll();
-  };
-
-  // TODO:: Delete this test code
-  loadNiftiData = async (url) => {
-    var response = await axios.get(url, { responseType: 'arraybuffer' });
-    const { pixelData } = NIFTIReader.parseData(response.data);
-    return pixelData;
-  };
-
-  // TODO:: Something wrong with the createSegment logic (spleen mask is green color)
   onClickExportSegments = async () => {
     let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
-    const pixelData = await this.loadNiftiData(url);
-
-    console.debug('Trying to create a segment with image input...');
-    this.createSegment('liver', pixelData);
-    this.createSegment('liver tumor');
+    let response = await axios.get(url, { responseType: 'arraybuffer' });
+    this.updateView(null, response, ['liver', 'liver tumor']);
 
     let url2 = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
-    const pixelData2 = await this.loadNiftiData(url2);
-
-    console.debug('Trying to create a segment with image input...');
-    this.createSegment('spleen', pixelData2);
-
-    console.debug('Finished create a segment with image input...');
-    this.refreshSegTable();
+    let response2 = await axios.get(url2, { responseType: 'arraybuffer' });
+    this.updateView(null, response2, ['spleen']);
   };
 
   initPointsAll = () => {
-    this.initPoints('DExtr3DProbe');
-    this.initPoints('DeepgrowProbe');
+    const activeIndex = this.getSelectedActiveIndex();
+    if (activeIndex) {
+      this.initPoints('DExtr3DProbe', activeIndex);
+      this.initPoints('DeepgrowProbe', activeIndex);
+    }
   };
 
-  initPoints = (toolName) => {
-    // Clear
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      cornerstoneTools.clearToolState(enabledElement, toolName);
-    });
+  initPoints = (toolName, activeIndex) => {
+    const { element } = this.viewConstants;
+    cornerstoneTools.clearToolState(element, toolName);
 
     // Add Points
-    const { activeSegmentIndex } = this.state;
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
-
-    const points = pointsAll.get(activeSegmentIndex);
+    const points = pointsAll.get(activeIndex.id);
     if (points) {
-      cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-        for (let i = 0; i < points.length; i++) {
-          cornerstoneTools.addToolState(enabledElement, toolName, points[i].data);
-        }
-      });
+      for (let i = 0; i < points.length; i++) {
+        cornerstoneTools.addToolState(element, toolName, points[i].data);
+      }
     }
 
     // Refresh
-    cornerstone.updateImage(this.viewConstants.element);
+    cornerstone.updateImage(element);
   };
 
-  clearPoints = (toolName) => {
-    const { activeSegmentIndex } = this.state;
-    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
+  clearPointsAll = (activeIndex) => {
+    this.clearPoints('DExtr3DProbe', activeIndex);
+    this.clearPoints('DeepgrowProbe', activeIndex);
+  };
 
-    const points = pointsAll.get(activeSegmentIndex);
+  clearPoints = (toolName, activeIndex) => {
+    const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
+    const points = pointsAll.get(activeIndex.id);
     if (points) {
-      pointsAll.delete(activeSegmentIndex);
+      pointsAll.delete(activeIndex.id);
     }
 
-    cornerstoneTools.store.state.enabledElements.forEach(enabledElement => {
-      cornerstoneTools.clearToolState(enabledElement, toolName);
-    });
-    cornerstone.updateImage(this.viewConstants.element);
+    const { element } = this.viewConstants;
+    cornerstoneTools.clearToolState(element, toolName);
+    cornerstone.updateImage(element);
   };
 
   getPointData = (evt) => {
@@ -842,8 +676,8 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    const { activeSegmentIndex } = this.state;
-    if (!activeSegmentIndex) {
+    const activeIndex = this.getSelectedActiveIndex();
+    if (!activeIndex) {
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Please create/select a label first',
@@ -852,20 +686,25 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    let points = this.state.extremePoints.get(this.state.activeSegmentIndex);
+    let points = this.state.extremePoints.get(activeIndex.id);
     if (!points) {
       points = [];
-      this.state.extremePoints.set(activeSegmentIndex, points);
+      this.state.extremePoints.set(activeIndex.id, points);
     }
 
     points.push(this.getPointData(evt));
+    const { dextr3d } = this.state.aiaaSettings;
 
     if (points.length === 1) {
       this.notification.show({
         title: 'NVIDIA AIAA',
-        message: 'Continue adding more extreme points (Min Required: 6)',
+        message: 'Continue adding more extreme points (Min Required: ' + dextr3d.min_points + ')',
         type: 'info',
       });
+    }
+
+    if (dextr3d.auto_run && points.length >= dextr3d.min_points) {
+      await this.onClickDExtr3DBtn();
     }
   };
 
@@ -875,8 +714,8 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    const { activeSegmentIndex } = this.state;
-    if (!activeSegmentIndex) {
+    const activeIndex = this.getSelectedActiveIndex();
+    if (!activeIndex) {
       this.notification.show({
         title: 'NVIDIA AIAA',
         message: 'Please create/select a label first',
@@ -885,10 +724,10 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    let points = this.state.deepgrowPoints.get(activeSegmentIndex);
+    let points = this.state.deepgrowPoints.get(activeIndex.id);
     if (!points) {
       points = [];
-      this.state.deepgrowPoints.set(activeSegmentIndex, points);
+      this.state.deepgrowPoints.set(activeIndex.id, points);
     }
 
     const pointData = this.getPointData(evt);
@@ -898,8 +737,29 @@ export default class AIAAPanel extends Component {
     await this.onDeepgrow(pointData.z);
   };
 
+  componentDidUpdate(prevProps) {
+    let radioObj = document.getElementsByName('segitem');
+    let radioLength = radioObj ? radioObj.length : 0;
+
+    const activeIndex = this.getActiveIndex();
+    let notSelected = null;
+    for (let i = 0; i < radioLength; i++) {
+      if (activeIndex.id === radioObj[i].value) {
+        radioObj[i].click();
+        return;
+      } else {
+        notSelected = radioObj[i];
+      }
+    }
+    if (notSelected) {
+      notSelected.click();
+    }
+  }
 
   render() {
+    const segments = [].concat.apply([], this.state.segments);
+    const totalSegments = segments.length;
+
     return (
       <div className="aiaaPanel">
         <table>
@@ -908,7 +768,7 @@ export default class AIAAPanel extends Component {
             <td className="aiaaTitle">NVIDIA Clara AIAA Panel</td>
           </tr>
           <tr>
-            <td className="aiaaSubtitle">All Segments:</td>
+            <td className="aiaaSubtitle">All Segments: <b>{totalSegments}</b></td>
           </tr>
           <tr>
             <td>
@@ -926,7 +786,7 @@ export default class AIAAPanel extends Component {
                 onClick={this.onClickDeleteSegment}
                 id="segDeleteBtn"
                 title="Delete Selected Segment"
-                disabled={this.state.activeSegmentIndex ? false : true}
+                disabled={totalSegments ? false : true}
               >
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
@@ -957,15 +817,14 @@ export default class AIAAPanel extends Component {
             </tr>
             </thead>
             <tbody>
-            {this.state.segments.map(seg => (
-              <tr key={seg.index}>
+            {segments.map(seg => (
+              <tr key={seg.id}>
                 <td>
                   <input
                     type="radio"
                     name="segitem"
-                    value={seg.index}
+                    value={seg.id}
                     onChange={this.onSelectSegment}
-                    ref={this.simulateActiveSegmentClick}
                   />
                 </td>
                 <td>
