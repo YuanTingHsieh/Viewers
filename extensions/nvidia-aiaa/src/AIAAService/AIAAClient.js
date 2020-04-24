@@ -120,7 +120,6 @@ export default class AIAAClient {
       seg_url.searchParams.append('session_id', session_id);
     }
 
-    console.info('Using Params: ');
     console.info(params);
     return await AIAAUtils.api_post_file(seg_url.toString(), params, image_in);
   }

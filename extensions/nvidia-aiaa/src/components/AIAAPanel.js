@@ -96,7 +96,7 @@ export default class AIAAPanel extends Component {
 
   getAIAASettings = () => {
     const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://10.110.46.111:5678/');
-    const multi_label = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_MULTI_LABEL', false);
+    const multi_label = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_MULTI_LABEL', true);
     const min_points = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', 6);
     const auto_run = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', true);
     const prefetch = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DICOM_PREFETCH', false);
@@ -522,10 +522,11 @@ export default class AIAAPanel extends Component {
   updateView = async (activeIndex, response, labels, operation, slice) => {
     const { element, numberOfFrames } = this.viewConstants;
     const { pixelData } = NIFTIReader.parseData(response.data);
+    const multi_label = this.state.aiaaSettings.multi_label;
 
     if (labels) {
       for (let i = 0; i < labels.length; i++) {
-        const resp = createSegment(element, labels[i], this.state.aiaaSettings.multi_label);
+        const resp = createSegment(element, labels[i], i === 0 ? multi_label : false);
         if (i === 0) {
           activeIndex = resp;
         }
@@ -533,7 +534,7 @@ export default class AIAAPanel extends Component {
       this.refreshSegTable();
     }
 
-    if (!operation && !this.state.aiaaSettings.multi_label) {
+    if (!operation && !multi_label) {
       operation = 'overlap';
     }
 

@@ -133,13 +133,13 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
       }
     }
 
-    console.info('Next LabelmapIndex: ' + nextLabelmapIndex);
+    console.debug('Next LabelmapIndex: ' + nextLabelmapIndex);
     setters.activeLabelmapIndex(element, nextLabelmapIndex);
   }
 
 
   const { labelmap3D, activeLabelmapIndex } = getters.labelmap2D(element);
-  console.info('activeLabelmapIndex: ' + activeLabelmapIndex);
+  console.debug('activeLabelmapIndex: ' + activeLabelmapIndex);
 
   // Add new colorLUT if required for new labelmapIndex
   const { state } = cornerstoneTools.getModule('segmentation');
@@ -162,7 +162,7 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
       break;
     }
   }
-  console.info('Next Segment: ' + nextSegmentId);
+  console.debug('Next Segment: ' + nextSegmentId);
 
   labelMeta.SegmentNumber = nextSegmentId;
   labelMeta.SegmentLabel = (label ? label : ('label_' + activeLabelmapIndex + '-' + nextSegmentId));
