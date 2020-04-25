@@ -52,12 +52,18 @@
     width: 100%
 
   .segButton
-    width: 80px
-    font-size: small
+    border: 1px solid var(--ui-border-color-active)
+    line-height: 25px
+    padding: 0 15px
+    outline: none
     cursor: pointer
 
     &:hover, &:active
       background-color: var(--ui-sky-blue)
+
+    &::-moz-focus-inner
+      padding 0
+      border 0
 
   .segSection
     height: 200px;

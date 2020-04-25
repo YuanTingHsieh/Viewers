@@ -3,7 +3,7 @@ import cornerstone from 'cornerstone-core';
 
 //const segmentationUtils = cornerstoneTools.importInternal('util/segmentationUtils');
 //const { drawBrushPixels, getCircle } = segmentationUtils;
-
+const { setters, getters } = cornerstoneTools.getModule('segmentation');
 
 function getImageIdsForDisplaySet(
   studies,
@@ -31,49 +31,30 @@ function getImageIdsForDisplaySet(
   return referencedDisplaySet.images.map(image => image.getImageId());
 }
 
-function getLabelmaps3D(element) {
-  const stackState = cornerstoneTools.getToolState(element, 'stack');
-  const stackData = stackState.data[0];
-  const firstImageId = stackData.imageIds[0];
-
-  const { state } = cornerstoneTools.getModule('segmentation');
-  const brushStackState = state.series[firstImageId];
-  if (!brushStackState) {
-    console.info('Bucket State is empty...');
-    return { labelmaps3D: null, activeLabelmapIndex: null };
-  }
-
-  const { labelmaps3D, activeLabelmapIndex } = brushStackState;
-  return { labelmaps3D, activeLabelmapIndex };
-}
-
-function getLabelmap3D(element, labelmapIndex) {
-  const { labelmaps3D, activeLabelmapIndex } = getLabelmaps3D(element);
-  if (!labelmaps3D) {
-    console.info('Labelmaps3D is empty...');
-    return null;
-  }
-
-  labelmapIndex = labelmapIndex === undefined ? activeLabelmapIndex : labelmapIndex;
-  return labelmaps3D[labelmapIndex];
-}
-
-function getSegmentList(element) {
-  let segments = [];
+/**
+ * Gets an array of LabelMap.
+ * Each LabelMap is an array of segments.
+ *
+ * Note that this LabelMap we have here is different from cornerstone's.
+ *
+ * @param element
+ */
+function getLabelMaps(element) {
+  let labelmaps = [];
   if (!element) {
     console.info('element is empty... weird...');
-    return segments;
+    return labelmaps;
   }
 
   const segmentationModule = cornerstoneTools.getModule('segmentation');
-  const { labelmaps3D } = getLabelmaps3D(element);
+  const { labelmaps3D } = getters.labelmaps3D(element);
   if (!labelmaps3D) {
     console.info('LabelMap3D is empty.. so zero segments');
-    return segments;
+    return labelmaps;
   }
 
   for (let i = 0; i < labelmaps3D.length; i++) {
-    let segs = [];
+    let segments = [];
     const labelmap3D = labelmaps3D[i];
 
     // TODO:: which one is standard metadata.data[] or metadata[] ???
@@ -98,18 +79,30 @@ function getSegmentList(element) {
           color: color,
           meta: meta,
         };
-        segs.push(segmentItem);
+        segments.push(segmentItem);
       }
     }
-    segments.push(segs);
+    labelmaps.push(segments);
   }
 
+  return labelmaps;
+}
+
+function flattenLabelmaps(labelmaps) {
+  const segments = [].concat.apply([], labelmaps);
   return segments;
 }
 
+/**
+ * Creates a segment.
+ *
+ * @param {Object} element A cornerstone element
+ * @param {string} label Name of the segment
+ * @param {boolean} newLabelMap Whether to put this segment in a new labelmap3D or not
+ * @param labelMeta
+ * @returns {{labelmapIndex: *, segmentIndex: number}}
+ */
 function createSegment(element, label, newLabelMap = false, labelMeta = null) {
-  const { getters, setters } = cornerstoneTools.getModule('segmentation');
-
   labelMeta = labelMeta ? labelMeta : {
     SegmentedPropertyCategoryCodeSequence: {
       CodeValue: 'T-D000A',
@@ -124,10 +117,10 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
   };
 
   if (newLabelMap) {
-    const segments = getSegmentList(element);
-    let nextLabelmapIndex = segments ? segments.length : 0; // Reuse First Empty LabelMap
-    for (let i = 0; i < segments.length; i++) {
-      if (!segments[i] || !segments[i].length) {
+    const labelmaps = getLabelMaps(element);
+    let nextLabelmapIndex = labelmaps ? labelmaps.length : 0; // Reuse First Empty LabelMap
+    for (let i = 0; i < labelmaps.length; i++) {
+      if (!labelmaps[i] || !labelmaps[i].length) {
         nextLabelmapIndex = i;
         break;
       }
@@ -137,7 +130,10 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
     setters.activeLabelmapIndex(element, nextLabelmapIndex);
   }
 
-
+  // this labelmap2D function will create a labelmap3D if a labelmap does
+  // not yet exist. it will also generate a labelmap2D for the currentImageIndex
+  // if it does not yet exist.
+  // refer to: https://github.com/cornerstonejs/cornerstoneTools/blob/master/src/store/modules/segmentationModule/getLabelmap2D.js
   const { labelmap3D, activeLabelmapIndex } = getters.labelmap2D(element);
   console.debug('activeLabelmapIndex: ' + activeLabelmapIndex);
 
@@ -170,12 +166,16 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
   metadata.data.push(labelMeta);
   setters.activeSegmentIndex(element, nextSegmentId);
 
-  return { labelmapIndex: activeLabelmapIndex, segmentIndex: nextSegmentId };
+  return {
+    id: activeLabelmapIndex+ '+' + nextSegmentId,
+    labelmapIndex: activeLabelmapIndex,
+    segmentIndex: nextSegmentId
+  };
 }
 
 
 function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFrames, operation, slice = -1) {
-  const labelmap3D = getLabelmap3D(element, labelmapIndex);
+  const labelmap3D = getters.labelmap3D(element, labelmapIndex);
   if (!labelmap3D) {
     console.warn('Missing Label; so ignore');
     return;
@@ -211,7 +211,7 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
   let srcBuffer = labelmap3D.buffer;
   let setSourceBuffer = false;
   for (let i = 0; i < numberOfFrames; i++) {
-    if (slice >= 0 && i != slice) { // do only one slice (in case of 3D Volume but 2D result e.g. Deeprow2D)
+    if (slice >= 0 && i !== slice) { // do only one slice (in case of 3D Volume but 2D result e.g. Deeprow2D)
       continue;
     }
 
@@ -254,7 +254,7 @@ function deleteSegment(element, labelmapIndex, segmentIndex) {
     return;
   }
 
-  const labelmap3D = getLabelmap3D(element, labelmapIndex);
+  const labelmap3D = getters.labelmap3D(element, labelmapIndex);
   if (!labelmap3D) {
     console.warn('Missing Label; so ignore');
     return;
@@ -294,9 +294,8 @@ function deleteSegment(element, labelmapIndex, segmentIndex) {
 
 export {
   getImageIdsForDisplaySet,
-  getLabelmaps3D,
-  getLabelmap3D,
-  getSegmentList,
+  getLabelMaps,
+  flattenLabelmaps,
   createSegment,
   updateSegment,
   deleteSegment,

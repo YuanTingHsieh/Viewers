@@ -17,7 +17,8 @@ import {
   createSegment,
   deleteSegment,
   getImageIdsForDisplaySet,
-  getSegmentList,
+  getLabelMaps,
+  flattenLabelmaps,
   updateSegment,
 } from '../utils/genericUtils';
 import NIFTIReader from '../utils/NIFTIReader';
@@ -70,11 +71,13 @@ export default class AIAAPanel extends Component {
 
     this.viewConstants = this.getViewConstants(viewports, studies, activeIndex);
     const aiaaSettings = this.getAIAASettings();
-    const segments = getSegmentList(this.viewConstants.element);
+    const labelmaps = getLabelMaps(this.viewConstants.element);
+    const segments = flattenLabelmaps(labelmaps);
 
     this.state = {
       aiaaSettings: aiaaSettings,
       segments: segments,
+      selectedSegmentId: segments && segments.length ? segments[0].id : null,
       //
       segModels: [],
       annModels: [],
@@ -329,20 +332,11 @@ export default class AIAAPanel extends Component {
     return { id, labelmapIndex, segmentIndex };
   };
 
-  setActiveIndex = (labelmapIndex, segmentIndex) => {
-    setters.activeLabelmapIndex(this.viewConstants.element, labelmapIndex);
-    setters.activeSegmentIndex(this.viewConstants.element, segmentIndex);
-  };
-
-  setActiveIndexById = (id) => {
-    let index = id.split('+').map(Number);
-    this.setActiveIndex(index[0], index[1]);
-  };
-
   getSelectedActiveIndex = () => {
-    const obj = document.querySelector('input[name="segitem"]:checked');
-    if (obj) {
-      const id = obj.value;
+    // const obj = document.querySelector('input[name="segitem"]:checked');
+    const id = this.state.selectedSegmentId;
+    console.debug('Getting selected index ' + id);
+    if (id) {
       let index = id.split('+').map(Number);
       return { id, labelmapIndex: index[0], segmentIndex: index[1] };
     }
@@ -543,15 +537,14 @@ export default class AIAAPanel extends Component {
 
   onClickAddSegment = () => {
     const { element } = this.viewConstants;
-    createSegment(element, undefined, this.state.aiaaSettings.multi_label);
-
+    const { id } = createSegment(element, undefined, this.state.aiaaSettings.multi_label);
+    this.setState({ selectedSegmentId: id });
     this.refreshSegTable();
   };
 
   onSelectSegment = evt => {
     let id = evt.currentTarget.value;
-    this.setActiveIndexById(id);
-    this.initPointsAll();
+    this.setState({ selectedSegmentId: id });
   };
 
   onClickDeleteSegment = () => {
@@ -560,14 +553,14 @@ export default class AIAAPanel extends Component {
 
     const { element } = this.viewConstants;
     deleteSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex);
+    this.setState({selectedSegmentId: null });
     this.refreshSegTable();
   };
 
   refreshSegTable = () => {
-    const segments = getSegmentList(this.viewConstants.element);
-    this.setState({ segments });
-
-    this.initPointsAll();
+    const labelmaps = getLabelMaps(this.viewConstants.element);
+    const segments = flattenLabelmaps(labelmaps);
+    this.setState({ segments: segments });
   };
 
   onSelectActionTab = evt => {
@@ -631,11 +624,14 @@ export default class AIAAPanel extends Component {
 
   initPoints = (toolName, activeIndex) => {
     const { element } = this.viewConstants;
+    const { id, labelmapIndex, segmentIndex } = activeIndex;
+    setters.activeLabelmapIndex(element, labelmapIndex);
+    setters.activeSegmentIndex(element, segmentIndex);
     cornerstoneTools.clearToolState(element, toolName);
 
     // Add Points
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
-    const points = pointsAll.get(activeIndex.id);
+    const points = pointsAll.get(id);
     if (points) {
       for (let i = 0; i < points.length; i++) {
         cornerstoneTools.addToolState(element, toolName, points[i].data);
@@ -677,7 +673,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    const activeIndex = this.getSelectedActiveIndex();
+    const activeIndex = this.state.selectedSegmentId;
     if (!activeIndex) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -687,10 +683,10 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    let points = this.state.extremePoints.get(activeIndex.id);
+    let points = this.state.extremePoints.get(activeIndex);
     if (!points) {
       points = [];
-      this.state.extremePoints.set(activeIndex.id, points);
+      this.state.extremePoints.set(activeIndex, points);
     }
 
     points.push(this.getPointData(evt));
@@ -715,7 +711,7 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    const activeIndex = this.getSelectedActiveIndex();
+    const activeIndex = this.state.selectedSegmentId;
     if (!activeIndex) {
       this.notification.show({
         title: 'NVIDIA AIAA',
@@ -725,10 +721,10 @@ export default class AIAAPanel extends Component {
       return;
     }
 
-    let points = this.state.deepgrowPoints.get(activeIndex.id);
+    let points = this.state.deepgrowPoints.get(activeIndex);
     if (!points) {
       points = [];
-      this.state.deepgrowPoints.set(activeIndex.id, points);
+      this.state.deepgrowPoints.set(activeIndex, points);
     }
 
     const pointData = this.getPointData(evt);
@@ -738,28 +734,17 @@ export default class AIAAPanel extends Component {
     await this.onDeepgrow(pointData.z);
   };
 
-  componentDidUpdate(prevProps) {
-    let radioObj = document.getElementsByName('segitem');
-    let radioLength = radioObj ? radioObj.length : 0;
-
-    const activeIndex = this.getActiveIndex();
-    let notSelected = null;
-    for (let i = 0; i < radioLength; i++) {
-      if (activeIndex.id === radioObj[i].value) {
-        radioObj[i].click();
-        return;
-      } else {
-        notSelected = radioObj[i];
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    if (prevState.selectedSegmentId !== this.state.selectedSegmentId) {
+      if (this.state.selectedSegmentId) {
+        this.initPointsAll();
       }
-    }
-    if (notSelected) {
-      notSelected.click();
     }
   }
 
   render() {
-    const segments = [].concat.apply([], this.state.segments);
-    const totalSegments = segments.length;
+    // const segments = [].concat.apply([], this.state.segments);
+    const totalSegments = this.state.segments.length;
 
     return (
       <div className="aiaaPanel">
@@ -787,7 +772,7 @@ export default class AIAAPanel extends Component {
                 onClick={this.onClickDeleteSegment}
                 id="segDeleteBtn"
                 title="Delete Selected Segment"
-                disabled={totalSegments ? false : true}
+                disabled={!this.state.selectedSegmentId}
               >
                 <Icon name="trash" width="12px" height="12px"/>
                 Remove
@@ -818,13 +803,14 @@ export default class AIAAPanel extends Component {
             </tr>
             </thead>
             <tbody>
-            {segments.map(seg => (
+            {this.state.segments.map(seg => (
               <tr key={seg.id}>
                 <td>
                   <input
                     type="radio"
                     name="segitem"
                     value={seg.id}
+                    checked={seg.id === this.state.selectedSegmentId}
                     onChange={this.onSelectSegment}
                   />
                 </td>
