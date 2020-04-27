@@ -644,6 +644,9 @@ export default class AIAAPanel extends Component {
   };
 
   clearPointsAll = (activeIndex) => {
+    if (!activeIndex) {
+      return;
+    }
     this.clearPoints('DExtr3DProbe', activeIndex);
     this.clearPoints('DeepgrowProbe', activeIndex);
   };
@@ -738,6 +741,7 @@ export default class AIAAPanel extends Component {
   componentDidUpdate(prevProps, prevState, snapshot) {
     if (prevState.selectedSegmentId !== this.state.selectedSegmentId) {
       if (this.state.selectedSegmentId) {
+        this.clearPointsAll(prevState.selectedSegmentId);
         this.initPointsAll();
       }
     }
