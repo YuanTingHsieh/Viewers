@@ -10,15 +10,15 @@ import cornerstone from 'cornerstone-core';
 
 import './AIAAPanel.styl';
 import AIAATable from './AIAATable';
-import Collapsible from './Collapsible';
+import AIAASettings from './AIAASettings';
 
 import { AIAAClient, AIAAUtils, AIAAVolume } from '../AIAAService';
 import {
   createSegment,
   deleteSegment,
+  flattenLabelmaps,
   getImageIdsForDisplaySet,
   getLabelMaps,
-  flattenLabelmaps,
   updateSegment,
 } from '../utils/genericUtils';
 import NIFTIReader from '../utils/NIFTIReader';
@@ -123,8 +123,7 @@ export default class AIAAPanel extends Component {
     };
   };
 
-  saveAIAASettings = () => {
-    const { aiaaSettings } = this.state;
+  updateAIAASettings = (aiaaSettings) => {
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', aiaaSettings.url);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_MULTI_LABEL', aiaaSettings.multi_label);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d.min_points);
@@ -133,6 +132,8 @@ export default class AIAAPanel extends Component {
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', aiaaSettings.dicom.server_address);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_PORT', aiaaSettings.dicom.server_port);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_AE_TITLE', aiaaSettings.dicom.ae_title);
+
+    this.setState({ aiaaSettings });
   };
 
   getViewConstants = (viewports, studies, activeIndex) => {
@@ -553,7 +554,7 @@ export default class AIAAPanel extends Component {
 
     const { element } = this.viewConstants;
     deleteSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex);
-    this.setState({selectedSegmentId: null });
+    this.setState({ selectedSegmentId: null });
     this.refreshSegTable();
   };
 
@@ -868,24 +869,12 @@ export default class AIAAPanel extends Component {
           </tbody>
         </table>
 
-        <Collapsible title="More Settings...">
-          <div>
-            <table>
-              <tbody className="aiaaTable">
-              <tr>
-                <td width="70%">Enable AIAA Session:</td>
-                <td width="2%">&nbsp;</td>
-                <td width="28%"><input type="checkbox" defaultChecked/></td>
-              </tr>
-              <tr>
-                <td width="70%">Prefetch Images:</td>
-                <td width="2%">&nbsp;</td>
-                <td width="28%"><input type="checkbox" defaultChecked={this.state.aiaaSettings.dicom.prefetch}/></td>
-              </tr>
-              </tbody>
-            </table>
-          </div>
-        </Collapsible>
+        <AIAASettings
+          title="More Settings..."
+          settings={this.state.aiaaSettings}
+          onUpdate={this.updateAIAASettings}
+        >
+        </AIAASettings>
 
         <div className="tabs">
           <div className="tab">
