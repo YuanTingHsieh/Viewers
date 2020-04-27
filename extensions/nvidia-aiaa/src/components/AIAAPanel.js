@@ -326,13 +326,6 @@ export default class AIAAPanel extends Component {
     this.setState({ currentDeepgrowModel });
   };
 
-  getActiveIndex = () => {
-    const labelmapIndex = getters.activeLabelmapIndex(this.viewConstants.element);
-    const segmentIndex = getters.activeSegmentIndex(this.viewConstants.element);
-    const id = labelmapIndex + '+' + segmentIndex;
-    return { id, labelmapIndex, segmentIndex };
-  };
-
   getSelectedActiveIndex = () => {
     // const obj = document.querySelector('input[name="segitem"]:checked');
     const id = this.state.selectedSegmentId;
@@ -631,6 +624,7 @@ export default class AIAAPanel extends Component {
     cornerstoneTools.clearToolState(element, toolName);
 
     // Add Points
+    // TODO:: Currently all points are becoming visible on same Frame
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
     const points = pointsAll.get(id);
     if (points) {
@@ -654,7 +648,7 @@ export default class AIAAPanel extends Component {
   clearPoints = (toolName, activeIndex) => {
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
 
-    activeIndex = activeIndex ? activeIndex: this.getActiveIndex();
+    activeIndex = activeIndex ? activeIndex: this.getSelectedActiveIndex();
     const points = pointsAll.get(activeIndex.id);
     if (points) {
       pointsAll.delete(activeIndex.id);
