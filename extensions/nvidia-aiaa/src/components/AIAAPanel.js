@@ -653,6 +653,8 @@ export default class AIAAPanel extends Component {
 
   clearPoints = (toolName, activeIndex) => {
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
+
+    activeIndex = activeIndex ? activeIndex: this.getActiveIndex();
     const points = pointsAll.get(activeIndex.id);
     if (points) {
       pointsAll.delete(activeIndex.id);

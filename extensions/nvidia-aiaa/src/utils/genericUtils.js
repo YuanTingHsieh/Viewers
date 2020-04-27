@@ -167,9 +167,9 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
   setters.activeSegmentIndex(element, nextSegmentId);
 
   return {
-    id: activeLabelmapIndex+ '+' + nextSegmentId,
+    id: activeLabelmapIndex + '+' + nextSegmentId,
     labelmapIndex: activeLabelmapIndex,
-    segmentIndex: nextSegmentId
+    segmentIndex: nextSegmentId,
   };
 }
 
@@ -209,7 +209,7 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
 
   // Update Buffer (2D/3D)
   let srcBuffer = labelmap3D.buffer;
-  let setSourceBuffer = false;
+  let useSourceBuffer = false;
   for (let i = 0; i < numberOfFrames; i++) {
     if (slice >= 0 && i !== slice) { // do only one slice (in case of 3D Volume but 2D result e.g. Deeprow2D)
       continue;
@@ -217,34 +217,35 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
 
     const sliceOffset = slicelengthInBytes * i;
     const sliceLength = slicelengthInBytes / 2;
-    let pixelData = new Uint16Array(buffer, sliceOffset, sliceLength);
 
-    if (operation) {
-      let srcPixelData = new Uint16Array(srcBuffer, sliceOffset, sliceLength);
-      for (let j = 0; j < srcPixelData.length; j++) {
-        if (operation === 'overlap') { // single labelmap => multiple segments
-          if (pixelData[j] > 0) {
-            srcPixelData[j] = pixelData[j] + segmentOffset;
-          }
-        } else if (operation === 'override') { // deepgrow case
-          // first clean up and add
-          if (srcPixelData[j] === segmentIndex) {
-            srcPixelData[j] = 0;
-          }
-          if (pixelData[j] > 0) {
-            srcPixelData[j] = pixelData[j] + segmentOffset;
-          }
+    let pixelData = new Uint16Array(buffer, sliceOffset, sliceLength);
+    let srcPixelData = new Uint16Array(srcBuffer, sliceOffset, sliceLength);
+    for (let j = 0; j < pixelData.length; j++) {
+      if (operation === 'overlap') {
+        if (pixelData[j] > 0) {
+          srcPixelData[j] = pixelData[j] + segmentOffset;
+        }
+        useSourceBuffer = true;
+      } else if (operation === 'override') {
+        if (srcPixelData[j] === segmentIndex) {
+          srcPixelData[j] = 0;
+        }
+        if (pixelData[j] > 0) {
+          srcPixelData[j] = pixelData[j] + segmentOffset;
+        }
+        useSourceBuffer = true;
+      } else {
+        if (pixelData[j] > 0) {
+          pixelData[j] = pixelData[j] + segmentOffset;
         }
       }
-
-      pixelData = srcPixelData;
-      setSourceBuffer = true;
     }
 
+    pixelData = useSourceBuffer ? srcPixelData : pixelData;
     labelmaps2D[i] = { pixelData, segmentsOnLabelmap };
   }
 
-  labelmap3D.buffer = setSourceBuffer ? srcBuffer : buffer;
+  labelmap3D.buffer = useSourceBuffer ? srcBuffer : buffer;
   cornerstone.updateImage(element);
 }
 
