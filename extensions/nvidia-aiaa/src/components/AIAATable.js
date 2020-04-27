@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-
-import { Icon } from '@ohif/ui';
+import nvidiaLogo from '../icons/nvidia.svg';
 
 import './AIAAPanel.styl';
 
@@ -33,9 +32,9 @@ export default class AIAATable extends Component {
     if (this.state.isButtonDisabled) {
       return;
     }
-    this.setState({isButtonDisabled: true});
+    this.setState({ isButtonDisabled: true });
     await this.props.onClick();
-    this.setState({isButtonDisabled: false});
+    this.setState({ isButtonDisabled: false });
   };
 
   render() {
@@ -44,7 +43,7 @@ export default class AIAATable extends Component {
         <table className="aiaaTable">
           <tbody>
           <tr>
-            <td colSpan="3">{this.props.title}</td>
+            <td colSpan="3">{this.props.title} Models:</td>
           </tr>
           <tr>
             <td width="80%">
@@ -68,14 +67,14 @@ export default class AIAATable extends Component {
             <td width="2%">&nbsp;</td>
             <td width="18%">
               <button
-                className="aiaaButton"
+                className="aiaaActionButton"
                 name={this.props.name + 'Button'}
                 onClick={this.onClickBtn}
-                title="Run Action"
+                title={"Run " + this.props.title}
                 disabled={this.state.isButtonDisabled}
                 style={{display: (this.props.onClick ? 'block' : 'none')}}
               >
-                <Icon name="brain" width="16px" height="16px" />
+                {React.createElement(nvidiaLogo, { width: '16px', height: '16px' })}
               </button>
             </td>
           </tr>

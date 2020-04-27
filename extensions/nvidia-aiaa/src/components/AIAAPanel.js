@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import MD5 from 'md5.js';
-import axios from 'axios';
 
 import { Icon } from '@ohif/ui';
 import { UINotificationService, utils } from '@ohif/core';
@@ -600,13 +599,11 @@ export default class AIAAPanel extends Component {
   };
 
   onClickExportSegments = async () => {
-    let url = 'http://10.110.46.111:8002/tf_segmentation_ct_liver_and_tumor_Liver1.nii';
-    let response = await axios.get(url, { responseType: 'arraybuffer' });
-    this.updateView(null, response, ['liver', 'liver tumor']);
-
-    let url2 = 'http://10.110.46.111:8002/tf_segmentation_ct_spleen_Liver1.nii';
-    let response2 = await axios.get(url2, { responseType: 'arraybuffer' });
-    this.updateView(null, response2, ['spleen']);
+    this.notification.show({
+      title: 'NVIDIA AIAA',
+      message: 'Work In Progress: Not supported yet...',
+      type: 'info',
+    });
   };
 
   initPointsAll = () => {
@@ -782,8 +779,8 @@ export default class AIAAPanel extends Component {
                 onClick={this.onClickExportSegments}
                 title={'Save Segments'}
               >
-                <Icon name="angle-double-down" width="12px" height="12px"/>
-                Export
+                <Icon name="save" width="12px" height="12px"/>
+                &nbsp;Export
               </button>
             </td>
           </tr>
@@ -889,7 +886,7 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 name="segmentation"
-                title="Segmentation Models:"
+                title="Segmentation"
                 models={this.state.segModels}
                 currentModel={this.state.currentSegModel}
                 onClick={this.onClickSegBtn}
@@ -918,7 +915,7 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 name="dextr3d"
-                title="Annotation (DExtr3D) Models:"
+                title="Annotation (DExtr3D)"
                 models={this.state.annModels}
                 currentModel={this.state.currentAnnModel}
                 onClick={this.onClickDExtr3DBtn}
@@ -949,14 +946,15 @@ export default class AIAAPanel extends Component {
             <div className="tab-content">
               <AIAATable
                 name="deepgrow"
-                title="DeepGrow Models:"
+                title="DeepGrow"
                 models={this.state.deepgrowModels}
                 currentModel={this.state.currentDeepgrowModel}
                 onSelect={this.onSelectDeepgrowModel}
                 usage={
                   <div>
                     <p>
-                      You can use DeepGrow model to annotate <b>any organ</b>.
+                      You can use DeepGrow model to annotate <b>any organ</b>. &nbsp;Use <i>Ctrl + Click</i> to
+                      add <b><i>background</i></b> points.
                     </p>
                     <a href="#" onClick={() => this.clearPoints('DeepgrowProbe')}>Clear Points</a>
                   </div>
