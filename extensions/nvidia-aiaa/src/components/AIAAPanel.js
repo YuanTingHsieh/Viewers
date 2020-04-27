@@ -124,6 +124,7 @@ export default class AIAAPanel extends Component {
   };
 
   updateAIAASettings = (aiaaSettings) => {
+    console.info(aiaaSettings);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', aiaaSettings.url);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_MULTI_LABEL', aiaaSettings.multi_label);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d.min_points);
@@ -645,7 +646,7 @@ export default class AIAAPanel extends Component {
   clearPoints = (toolName, activeIndex) => {
     const pointsAll = (toolName === 'DExtr3DProbe') ? this.state.extremePoints : this.state.deepgrowPoints;
 
-    activeIndex = activeIndex ? activeIndex: this.getSelectedActiveIndex();
+    activeIndex = activeIndex ? activeIndex : this.getSelectedActiveIndex();
     const points = pointsAll.get(activeIndex.id);
     if (points) {
       pointsAll.delete(activeIndex.id);

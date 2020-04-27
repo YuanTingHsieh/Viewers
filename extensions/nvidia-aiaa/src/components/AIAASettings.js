@@ -32,15 +32,16 @@ export default class AIAASettings extends React.Component {
     settings.multi_label = document.getElementById('aiaa.overlapping').checked ? false : true;
     settings.dextr3d.auto_run = document.getElementById('aiaa.dextr3d.autorun').checked;
     settings.dicom.prefetch = document.getElementById('aiaa.dicom.prefetch').checked;
-    if (settings.dicom.prefetch) {
+    if (!settings.dicom.prefetch) {
       let server = document.getElementById('aiaa.dicom.server').innerHTML.split(':');
       settings.dicom.server_address = server[0];
-      settings.dicom.server_port = server[1];
+      settings.dicom.server_port = parseInt(server[1], 10);
       settings.dicom.ae_title = document.getElementById('aiaa.dicom.ae').innerHTML;
     }
 
     this.setState({ settings: settings });
     this.props.onUpdate(this.state.settings);
+    this.togglePanel();
   };
 
   render() {
@@ -81,13 +82,15 @@ export default class AIAASettings extends React.Component {
                 </tr>
                 <tr style={{ filter: (this.state.prefetch ? 'brightness(0.5)' : 'brightness(1)') }}>
                   <td>DICOM Server:</td>
-                  <td id="aiaa.dicom.server" contentEditable="true" suppressContentEditableWarning="true">
+                  <td id="aiaa.dicom.server" className="segEdit" contentEditable={!this.state.prefetch}
+                      suppressContentEditableWarning="true">
                     {this.state.settings.dicom.server_address}:{this.state.settings.dicom.server_port}
                   </td>
                 </tr>
                 <tr style={{ filter: (this.state.prefetch ? 'brightness(0.5)' : 'brightness(1)') }}>
                   <td>DICOM AE Title:</td>
-                  <td id="aiaa.dicom.ae" contentEditable="true" suppressContentEditableWarning="true">
+                  <td id="aiaa.dicom.ae" className="segEdit" contentEditable={!this.state.prefetch}
+                      suppressContentEditableWarning="true">
                     {this.state.settings.dicom.ae_title}
                   </td>
                 </tr>
