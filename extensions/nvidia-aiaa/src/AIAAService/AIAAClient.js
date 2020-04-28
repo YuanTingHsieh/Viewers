@@ -74,17 +74,18 @@ export default class AIAAClient {
     return await AIAAUtils.api_get(session_url.toString());
   }
 
-  async segmentation(model_name, image_in, session_id = undefined, output_type = '.nii.gz') {
+  async segmentation(model_name, image_in, session_id = undefined, output_type = '.nrrd') {
     const params = {};
     if (output_type) {
       params.result_extension = output_type;
       params.result_dtype = 'uint16';
+      params.result_compress = true;
     }
 
     return this.inference('segmentation', model_name, params, image_in, session_id);
   }
 
-  async deepgrow(model_name, foreground, background, image_in, session_id = undefined, output_type = '.nii.gz') {
+  async deepgrow(model_name, foreground, background, image_in, session_id = undefined, output_type = '.nrrd') {
     const params = {
       foreground: foreground,
       background: background,
@@ -92,18 +93,20 @@ export default class AIAAClient {
     if (output_type) {
       params.result_extension = output_type;
       params.result_dtype = 'uint16';
+      params.result_compress = true;
     }
 
     return this.inference('deepgrow', model_name, params, image_in, session_id);
   }
 
-  async dextr3d(model_name, points, image_in, session_id = undefined, output_type = '.nii.gz') {
+  async dextr3d(model_name, points, image_in, session_id = undefined, output_type = '.nrrd') {
     const params = {
       points: points,
     };
     if (output_type) {
       params.result_extension = output_type;
       params.result_dtype = 'uint16';
+      params.result_compress = true;
     }
 
     return this.inference('dextr3d', model_name, params, image_in, session_id);

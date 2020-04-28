@@ -30,6 +30,7 @@ export default class AIAASettings extends React.Component {
     const { settings } = this.state;
 
     settings.multi_label = document.getElementById('aiaa.overlapping').checked ? false : true;
+    settings.export_format = document.getElementById('aiaa.format').value;
     settings.dextr3d.auto_run = document.getElementById('aiaa.dextr3d.autorun').checked;
     settings.dicom.prefetch = document.getElementById('aiaa.dicom.prefetch').checked;
     if (!settings.dicom.prefetch) {
@@ -65,6 +66,16 @@ export default class AIAASettings extends React.Component {
                 <tr>
                   <td>Overlapping Segments:</td>
                   <td><input id="aiaa.overlapping" type="checkbox" defaultChecked={!this.state.settings.multi_label}/>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Export As:</td>
+                  <td>
+                    <select id="aiaa.format" defaultValue={this.state.settings.export_format}>
+                      <option value="NRRD">NRRD</option>
+                      <option value="NIFTI">NIFTI</option>
+                      <option value="NIFTI" disabled>DICOM-SEG</option>
+                    </select>
                   </td>
                 </tr>
                 <tr>

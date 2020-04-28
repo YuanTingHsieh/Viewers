@@ -20,9 +20,7 @@ import {
   getLabelMaps,
   updateSegment,
 } from '../utils/genericUtils';
-import NIFTIReader from '../utils/NIFTIReader';
-
-const { getters, setters } = cornerstoneTools.getModule('segmentation');
+import AIAASegReader from '../utils/AIAASegReader';
 
 const ColoredCircle = ({ color }) => {
   return (
@@ -89,6 +87,7 @@ export default class AIAAPanel extends Component {
       //
       currentEvent: null,
       aiaaOpInProgress: false,
+      imageHeader: null,
     };
   }
 
@@ -99,6 +98,7 @@ export default class AIAAPanel extends Component {
   getAIAASettings = () => {
     const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://10.110.46.111:5678/');
     const multi_label = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_MULTI_LABEL', true);
+    const export_format = AIAAUtils.getAIAACookie('NVIDIA_AIAA_EXPORT_FORMAT', 'NRRD');
     const min_points = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', 6);
     const auto_run = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', true);
     const prefetch = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DICOM_PREFETCH', false);
@@ -109,6 +109,7 @@ export default class AIAAPanel extends Component {
     return {
       url: url,
       multi_label: multi_label,
+      export_format: export_format,
       dextr3d: {
         min_points: min_points,
         auto_run: auto_run,
@@ -126,6 +127,7 @@ export default class AIAAPanel extends Component {
     console.info(aiaaSettings);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', aiaaSettings.url);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_MULTI_LABEL', aiaaSettings.multi_label);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_EXPORT_FORMAT', aiaaSettings.export_format);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d.min_points);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', aiaaSettings.dextr3d.auto_run);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_PREFETCH', aiaaSettings.dicom.prefetch);
@@ -509,7 +511,7 @@ export default class AIAAPanel extends Component {
    */
   updateView = async (activeIndex, response, labels, operation, slice) => {
     const { element, numberOfFrames } = this.viewConstants;
-    const { pixelData } = NIFTIReader.parseData(response.data);
+    const { header, image } = AIAASegReader.parseNrrdData(response.data);
     const multi_label = this.state.aiaaSettings.multi_label;
 
     if (labels) {
@@ -526,14 +528,16 @@ export default class AIAAPanel extends Component {
       operation = 'overlap';
     }
 
-    updateSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex, pixelData, numberOfFrames, operation, slice);
+    if (!this.state.imageHeader) {
+      this.setState({ imageHeader: header });
+    }
+    updateSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex, image, numberOfFrames, operation, slice);
   };
 
   onClickAddSegment = () => {
     const { element } = this.viewConstants;
     const { id } = createSegment(element, undefined, this.state.aiaaSettings.multi_label);
-    this.setState({ selectedSegmentId: id });
-    this.refreshSegTable();
+    this.refreshSegTable(id);
   };
 
   onSelectSegment = evt => {
@@ -543,18 +547,21 @@ export default class AIAAPanel extends Component {
 
   onClickDeleteSegment = () => {
     const activeIndex = this.getSelectedActiveIndex();
-    this.clearPointsAll(activeIndex);
-
     const { element } = this.viewConstants;
+
     deleteSegment(element, activeIndex.labelmapIndex, activeIndex.segmentIndex);
-    this.setState({ selectedSegmentId: null });
-    this.refreshSegTable();
+    this.clearPointsAll(activeIndex);
+    this.refreshSegTable(null);
   };
 
-  refreshSegTable = () => {
+  refreshSegTable = (id) => {
     const labelmaps = getLabelMaps(this.viewConstants.element);
     const segments = flattenLabelmaps(labelmaps);
-    this.setState({ segments: segments });
+    if (id === undefined) {
+      this.setState({ segments: segments });
+    } else {
+      this.setState({ segments: segments, selectedSegmentId: id });
+    }
   };
 
   onSelectActionTab = evt => {
@@ -599,11 +606,33 @@ export default class AIAAPanel extends Component {
   };
 
   onClickExportSegments = async () => {
-    this.notification.show({
-      title: 'NVIDIA AIAA',
-      message: 'Work In Progress: Not supported yet...',
-      type: 'info',
-    });
+    const { getters } = cornerstoneTools.getModule('segmentation');
+    const { labelmaps3D } = getters.labelmaps3D(this.viewConstants.element);
+    if (!labelmaps3D) {
+      console.info('LabelMap3D is empty.. so zero segments');
+      return;
+    }
+
+    for (let i = 0; i < labelmaps3D.length; i++) {
+      const labelmap3D = labelmaps3D[i];
+      if (!labelmap3D) {
+        console.warn('Missing Label; so ignore');
+        continue;
+      }
+
+      const metadata = labelmap3D.metadata.data ? labelmap3D.metadata.data : labelmap3D.metadata;
+      if (!metadata || !metadata.length) {
+        console.warn('Missing Meta; so ignore');
+        continue;
+      }
+
+      console.info(this.state.aiaaSettings.export_format + ' - Saving LabelMap: ' + i);
+      if (this.state.aiaaSettings.export_format === 'NIFTI') {
+        AIAASegReader.serializeNrrdToNii(this.state.imageHeader, labelmap3D.buffer, 'segment-' + i + '.nii.gz');
+      } else {
+        AIAASegReader.serializeNrrdCompressed(this.state.imageHeader, labelmap3D.buffer, 'segment-' + i + '.nrrd');
+      }
+    }
   };
 
   initPointsAll = () => {
@@ -615,8 +644,10 @@ export default class AIAAPanel extends Component {
   };
 
   initPoints = (toolName, activeIndex) => {
+    const { setters } = cornerstoneTools.getModule('segmentation');
     const { element } = this.viewConstants;
     const { id, labelmapIndex, segmentIndex } = activeIndex;
+
     setters.activeLabelmapIndex(element, labelmapIndex);
     setters.activeSegmentIndex(element, segmentIndex);
     cornerstoneTools.clearToolState(element, toolName);
@@ -778,6 +809,7 @@ export default class AIAAPanel extends Component {
                 className="segButton"
                 onClick={this.onClickExportSegments}
                 title={'Save Segments'}
+                disabled={!this.state.imageHeader || !totalSegments}
               >
                 <Icon name="save" width="12px" height="12px"/>
                 &nbsp;Export
