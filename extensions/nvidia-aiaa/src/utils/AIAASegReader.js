@@ -29,7 +29,7 @@ export default class AIAASegReader {
   }
 
   static parseNrrdData(data) {
-    var nrrdfile = nrrd.parse(data);
+    let nrrdfile = nrrd.parse(data);
 
     // Currently gzip is not supported in nrrd.js
     if (nrrdfile.encoding === 'gzip') {

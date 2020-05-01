@@ -200,9 +200,8 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
   const labelmaps2D = labelmap3D.labelmaps2D;
   const slicelengthInBytes = buffer.byteLength / numberOfFrames;
 
-  // TODO:: Fix this correctly...
-  if (!labelmaps2D.length || labelmaps2D.length < 1 || !labelmaps2D[0]
-    || !labelmaps2D[0].segmentsOnLabelmap || !labelmaps2D[0].segmentsOnLabelmap.length) {
+  console.debug('labelmap2d length:' + labelmaps2D.length)
+  if (!labelmaps2D.length || labelmaps2D.length < 1) {
     console.debug('First time update...');
     operation = undefined;
   }
@@ -213,6 +212,11 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
   for (let i = 0; i < numberOfFrames; i++) {
     if (slice >= 0 && i !== slice) { // do only one slice (in case of 3D Volume but 2D result e.g. Deeprow2D)
       continue;
+    }
+
+    // no segments in this slice
+    if (!labelmaps2D[i] || !labelmaps2D[i].segmentsOnLabelmap || !labelmaps2D[i].segmentsOnLabelmap.length) {
+      operation = 'override';
     }
 
     const sliceOffset = slicelengthInBytes * i;
@@ -251,6 +255,7 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
 
 
 function deleteSegment(element, labelmapIndex, segmentIndex) {
+  console.debug('calling delete segment with ' + labelmapIndex + ' and ' + segmentIndex);
   if (!element || !segmentIndex) {
     return;
   }

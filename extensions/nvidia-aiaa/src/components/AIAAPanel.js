@@ -658,7 +658,17 @@ export default class AIAAPanel extends Component {
     const points = pointsAll.get(id);
     if (points) {
       for (let i = 0; i < points.length; i++) {
-        cornerstoneTools.addToolState(element, toolName, points[i].data);
+        const enabledElement = cornerstone.getEnabledElement(element);
+        const oldImageId = enabledElement.image.imageId;
+
+        for (let i = 0; i < points.length; ++i) {
+          // add tool state will only add on that image (2D)
+          let { imageId, data } = points[i];
+          enabledElement.image.imageId = imageId;
+          cornerstoneTools.addToolState(element, toolName, data);
+        }
+        enabledElement.image.imageId = oldImageId;
+        cornerstone.updateImage(element);
       }
     }
 
@@ -677,12 +687,20 @@ export default class AIAAPanel extends Component {
     activeIndex = activeIndex ? activeIndex : this.getSelectedActiveIndex();
     const points = pointsAll.get(activeIndex.id);
     if (points) {
+      const { element } = this.viewConstants;
+      const enabledElement = cornerstone.getEnabledElement(element);
+      const oldImageId = enabledElement.image.imageId;
+
+      for (let i = 0; i < points.length; ++i) {
+        // clear tool state will only clear on that image (2D)
+        let { imageId } = points[i];
+        enabledElement.image.imageId = imageId;
+        cornerstoneTools.clearToolState(element, toolName);
+      }
+      enabledElement.image.imageId = oldImageId;
+      cornerstone.updateImage(element);
       pointsAll.delete(activeIndex.id);
     }
-
-    const { element } = this.viewConstants;
-    cornerstoneTools.clearToolState(element, toolName);
-    cornerstone.updateImage(element);
   };
 
   getPointData = (evt) => {
@@ -690,7 +708,7 @@ export default class AIAAPanel extends Component {
     const z = this.viewConstants.imageIdsToIndex.get(imageId);
 
     console.debug('X: ' + x + '; Y: ' + y + '; Z: ' + z);
-    return { x, y, z, data: evt.detail };
+    return { x, y, z, data: evt.detail, imageId };
   };
 
   dextr3DClickEventHandler = async (evt) => {
