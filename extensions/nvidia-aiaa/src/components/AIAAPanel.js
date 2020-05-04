@@ -520,8 +520,13 @@ export default class AIAAPanel extends Component {
         if (i === 0) {
           activeIndex = resp;
         }
+
+        if (this.state.selectedSegmentId) {
+          this.refreshSegTable();
+        } else {
+          this.refreshSegTable(activeIndex.id);
+        }
       }
-      this.refreshSegTable();
     }
 
     if (!operation && !multi_label) {

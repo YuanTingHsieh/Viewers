@@ -158,7 +158,7 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
       break;
     }
   }
-  console.debug('Next Segment: ' + nextSegmentId);
+  console.info('Next Segment: ' + nextSegmentId +'; LabelMap: ' + activeLabelmapIndex);
 
   labelMeta.SegmentNumber = nextSegmentId;
   labelMeta.SegmentLabel = (label ? label : ('label_' + activeLabelmapIndex + '-' + nextSegmentId));
