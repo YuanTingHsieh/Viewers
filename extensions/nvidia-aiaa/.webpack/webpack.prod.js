@@ -1,3 +1,4 @@
+const webpack = require('webpack');
 const merge = require('webpack-merge');
 const path = require('path');
 const webpackCommon = require('./../../../.webpack/webpack.commonjs.js');
@@ -12,27 +13,21 @@ module.exports = (env, argv) => {
 
   return merge(commonConfig, {
     devtool: 'source-map',
-    stats: {
-      colors: true,
-      hash: true,
-      timings: true,
-      assets: true,
-      chunks: false,
-      chunkModules: false,
-      modules: false,
-      children: false,
-      warnings: true,
-    },
     optimization: {
       minimize: true,
       sideEffects: true,
     },
     output: {
       path: ROOT_DIR,
-      library: 'OHIFExtLesionTracker',
+      library: 'OHIFExtNvidiaAIAA',
       libraryTarget: 'umd',
       libraryExport: 'default',
       filename: pkg.main,
     },
+    plugins: [
+      new webpack.optimize.LimitChunkCountPlugin({
+        maxChunks: 1,
+      }),
+    ],
   });
 };
