@@ -163,7 +163,11 @@ function createSegment(element, label, newLabelMap = false, labelMeta = null) {
   labelMeta.SegmentNumber = nextSegmentId;
   labelMeta.SegmentLabel = (label ? label : ('label_' + activeLabelmapIndex + '-' + nextSegmentId));
 
-  metadata.data.push(labelMeta);
+  if (nextSegmentId === metadata.data.length) {
+    metadata.data.push(labelMeta);
+  } else {
+    metadata.data.splice(nextSegmentId, 0, labelMeta);
+  }
   setters.activeSegmentIndex(element, nextSegmentId);
 
   return {
