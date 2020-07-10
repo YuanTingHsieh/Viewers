@@ -19,7 +19,7 @@ export default class AIAASegReader {
     }
 
     const header = nifti.readHeader(data);
-    const image = nifti.readImage(niftiHeader, data);
+    const image = nifti.readImage(header, data);
     console.debug(header.toFormattedString());
 
     return {
