@@ -35,7 +35,6 @@ ColoredCircle.propTypes = {
   color: PropTypes.array.isRequired,
 };
 
-
 const DICOM_SERVER_INFO = {
   server_address: '10.110.46.111',
   server_port: 11112,
@@ -97,25 +96,23 @@ export default class AIAAPanel extends Component {
 
   getAIAASettings = () => {
     const url = AIAAUtils.getAIAACookie('NVIDIA_AIAA_SERVER_URL', 'http://10.110.46.111:5678/');
-    const multi_label = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_MULTI_LABEL', true);
+    const overlap_segments = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_OVERLAP_SEGMENTS', false);
     const export_format = AIAAUtils.getAIAACookie('NVIDIA_AIAA_EXPORT_FORMAT', 'NRRD');
-    const min_points = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', 6);
-    const auto_run = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', true);
-    const prefetch = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DICOM_PREFETCH', false);
+    const dextr3d_min_points = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', 6);
+    const dextr3d_auto_run = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', true);
+    const fetch_from_dicom_server = AIAAUtils.getAIAACookieBool('NVIDIA_AIAA_FETCH_FROM_DICOM_SERVER', false);
     const server_address = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', '10.110.46.111');
     const server_port = AIAAUtils.getAIAACookieNumber('NVIDIA_AIAA_DICOM_SERVER_PORT', 11112);
     const ae_title = AIAAUtils.getAIAACookie('NVIDIA_AIAA_DICOM_AE_TITLE', 'DCM4CHEE');
 
     return {
       url: url,
-      multi_label: multi_label,
+      overlap_segments: overlap_segments,
       export_format: export_format,
-      dextr3d: {
-        min_points: min_points,
-        auto_run: auto_run,
-      },
+      dextr3d_min_points: dextr3d_min_points,
+      dextr3d_auto_run: dextr3d_auto_run,
+      fetch_from_dicom_server: fetch_from_dicom_server,
       dicom: {
-        prefetch: prefetch,
         server_address: server_address,
         server_port: server_port,
         ae_title: ae_title,
@@ -126,11 +123,11 @@ export default class AIAAPanel extends Component {
   updateAIAASettings = (aiaaSettings) => {
     console.info(aiaaSettings);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_SERVER_URL', aiaaSettings.url);
-    AIAAUtils.setAIAACookie('NVIDIA_AIAA_MULTI_LABEL', aiaaSettings.multi_label);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_OVERLAP_SEGMENTS', aiaaSettings.overlap_segments);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_EXPORT_FORMAT', aiaaSettings.export_format);
-    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d.min_points);
-    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', aiaaSettings.dextr3d.auto_run);
-    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_PREFETCH', aiaaSettings.dicom.prefetch);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_MIN_POINTS', aiaaSettings.dextr3d_min_points);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_DEXTR3D_AUTO_RUN', aiaaSettings.dextr3d_auto_run);
+    AIAAUtils.setAIAACookie('NVIDIA_AIAA_FETCH_FROM_DICOM_SERVER', aiaaSettings.fetch_from_dicom_server);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_ADDRESS', aiaaSettings.dicom.server_address);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_SERVER_PORT', aiaaSettings.dicom.server_port);
     AIAAUtils.setAIAACookie('NVIDIA_AIAA_DICOM_AE_TITLE', aiaaSettings.dicom.ae_title);
@@ -257,7 +254,7 @@ export default class AIAAPanel extends Component {
     });
 
     let response;
-    if (!this.state.aiaaSettings.dicom.prefetch) {
+    if (this.state.aiaaSettings.fetch_from_dicom_server) {
       DICOM_SERVER_INFO.server_address = this.state.aiaaSettings.dicom.server_address;
       DICOM_SERVER_INFO.server_port = this.state.aiaaSettings.dicom.server_port;
       DICOM_SERVER_INFO.ae_title = this.state.aiaaSettings.dicom.ae_title;
@@ -512,11 +509,11 @@ export default class AIAAPanel extends Component {
   updateView = async (activeIndex, response, labels, operation, slice) => {
     const { element, numberOfFrames } = this.viewConstants;
     const { header, image } = AIAASegReader.parseNrrdData(response.data);
-    const multi_label = this.state.aiaaSettings.multi_label;
+    const overlap_segments = this.state.aiaaSettings.overlap_segments;
 
     if (labels) {
       for (let i = 0; i < labels.length; i++) {
-        const resp = createSegment(element, labels[i], i === 0 ? multi_label : false);
+        const resp = createSegment(element, labels[i], i === 0 ? (!overlap_segments) : false);
         if (i === 0) {
           activeIndex = resp;
         }
@@ -529,7 +526,7 @@ export default class AIAAPanel extends Component {
       }
     }
 
-    if (!operation && !multi_label) {
+    if (!operation && overlap_segments) {
       operation = 'overlap';
     }
 
@@ -541,7 +538,7 @@ export default class AIAAPanel extends Component {
 
   onClickAddSegment = () => {
     const { element } = this.viewConstants;
-    const { id } = createSegment(element, undefined, this.state.aiaaSettings.multi_label);
+    const { id } = createSegment(element, undefined, !this.state.aiaaSettings.overlap_segments);
     this.refreshSegTable(id);
   };
 
@@ -739,17 +736,17 @@ export default class AIAAPanel extends Component {
     }
 
     points.push(this.getPointData(evt));
-    const { dextr3d } = this.state.aiaaSettings;
+    const { dextr3d_min_points, dextr3d_auto_run } = this.state.aiaaSettings;
 
     if (points.length === 1) {
       this.notification.show({
         title: 'NVIDIA AIAA',
-        message: 'Continue adding more extreme points (Min Required: ' + dextr3d.min_points + ')',
+        message: 'Continue adding more extreme points (Min Required: ' + dextr3d_min_points + ')',
         type: 'info',
       });
     }
 
-    if (dextr3d.auto_run && points.length >= dextr3d.min_points) {
+    if (dextr3d_auto_run && points.length >= dextr3d_min_points) {
       await this.onClickDExtr3DBtn();
     }
   };
@@ -919,7 +916,7 @@ export default class AIAAPanel extends Component {
         </table>
 
         <AIAASettings
-          title="More Settings..."
+          title="More AIAA Settings..."
           settings={this.state.aiaaSettings}
           onUpdate={this.updateAIAASettings}
         >

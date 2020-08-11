@@ -228,12 +228,16 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
 
     let pixelData = new Uint16Array(buffer, sliceOffset, sliceLength);
     let srcPixelData = new Uint16Array(srcBuffer, sliceOffset, sliceLength);
+
+    if (operation === 'overlap' || operation === 'override') {
+      useSourceBuffer = true;
+    }
+
     for (let j = 0; j < pixelData.length; j++) {
       if (operation === 'overlap') {
         if (pixelData[j] > 0) {
           srcPixelData[j] = pixelData[j] + segmentOffset;
         }
-        useSourceBuffer = true;
       } else if (operation === 'override') {
         if (srcPixelData[j] === segmentIndex) {
           srcPixelData[j] = 0;
@@ -241,7 +245,6 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
         if (pixelData[j] > 0) {
           srcPixelData[j] = pixelData[j] + segmentOffset;
         }
-        useSourceBuffer = true;
       } else {
         if (pixelData[j] > 0) {
           pixelData[j] = pixelData[j] + segmentOffset;

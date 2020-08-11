@@ -1,8 +1,36 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
+class CheckBox extends React.Component {
+  static propTypes = {
+    defaultChecked: PropTypes.bool,
+    name: PropTypes.string,
+    handleClick: PropTypes.func,
+    description: PropTypes.string,
+    disabled: PropTypes.bool,
+  };
+
+  render() {
+    return (
+      <tr>
+        <td>{this.props.description}:</td>
+        <td>
+          <input
+            name={this.props.name}
+            type="checkbox"
+            defaultChecked={this.props.defaultChecked}
+            onClick={this.props.handleClick}
+            disabled={this.props.disabled}
+          />
+        </td>
+      </tr>
+    );
+  }
+}
+
 export default class AIAASettings extends React.Component {
   static propTypes = {
+    title: PropTypes.string,
     open: PropTypes.bool,
     settings: PropTypes.any,
     onUpdate: PropTypes.func,
@@ -13,39 +41,48 @@ export default class AIAASettings extends React.Component {
     this.state = {
       open: false,
       settings: props.settings,
-      prefetch: props.settings.dicom.prefetch,
     };
   }
 
-  togglePanel = evt => {
+  togglePanel = () => {
     this.setState({ open: !this.state.open });
   };
 
-  onChangePrefetch = evt => {
-    this.setState({ prefetch: !this.state.prefetch });
+  onChangeFetchFromDICOM = () => {
+    let settings = this.props.settings;
+    settings.fetch_from_dicom_server = !settings.fetch_from_dicom_server;
+    this.props.onUpdate(settings);
   };
 
-  // TODO:: Remove explicit "save" click.. any prooperty change should do auto-save
-  saveSettings = evt => {
-    const { settings } = this.state;
+  handleClick = evt => {
+    let settings = this.props.settings;
+    settings[evt.target.name] = !settings[evt.target.name];
+    this.props.onUpdate(settings);
+  };
 
-    settings.multi_label = document.getElementById('aiaa.overlapping').checked ? false : true;
-    settings.export_format = document.getElementById('aiaa.format').value;
-    settings.dextr3d.auto_run = document.getElementById('aiaa.dextr3d.autorun').checked;
-    settings.dicom.prefetch = document.getElementById('aiaa.dicom.prefetch').checked;
-    if (!settings.dicom.prefetch) {
-      let server = document.getElementById('aiaa.dicom.server').innerHTML.split(':');
-      settings.dicom.server_address = server[0];
-      settings.dicom.server_port = parseInt(server[1], 10);
-      settings.dicom.ae_title = document.getElementById('aiaa.dicom.ae').innerHTML;
-    }
+  handleSelect = evt => {
+    let settings = this.props.settings;
+    settings[evt.target.name] = evt.target.value;
+    this.props.onUpdate(settings);
+  };
 
-    this.setState({ settings: settings });
-    this.props.onUpdate(this.state.settings);
-    this.togglePanel();
+  onBlurDICOMAE = evt => {
+    let settings = this.props.settings;
+    settings.dicom.ae_title = evt.target.value;
+    this.props.onUpdate(settings);
+  };
+
+  onBlurDICOMURL = evt => {
+    let settings = this.props.settings;
+    let text = evt.target.value.split(':');
+    settings.dicom.server_address = text[0];
+    settings.dicom.server_port = parseInt(text[1], 10);
+    this.props.onUpdate(settings);
   };
 
   render() {
+    const aiaa_settings = this.props.settings;
+
     return (
       <div>
         <button
@@ -59,62 +96,90 @@ export default class AIAASettings extends React.Component {
             <div>
               <table width="100%">
                 <tbody className="aiaaTable">
-                <tr>
-                  <td width="52%">AIAA Session:</td>
-                  <td><input id="aiaa.session" type="checkbox" defaultChecked disabled/></td>
-                </tr>
-                <tr>
-                  <td>Overlapping Segments:</td>
-                  <td><input id="aiaa.overlapping" type="checkbox" defaultChecked={!this.state.settings.multi_label}/>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Export As:</td>
-                  <td>
-                    <select id="aiaa.format" defaultValue={this.state.settings.export_format}>
-                      <option value="NRRD">NRRD</option>
-                      <option value="NIFTI">NIFTI</option>
-                      <option value="NIFTI" disabled>DICOM-SEG</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Auto Run DExtr3D:</td>
-                  <td>
-                    <input id="aiaa.dextr3d.autorun" type="checkbox"
-                           defaultChecked={this.state.settings.dextr3d.auto_run}/>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Prefetch Images:</td>
-                  <td><input id="aiaa.dicom.prefetch" type="checkbox"
-                             defaultChecked={this.state.prefetch}
-                             onClick={this.onChangePrefetch}/></td>
-                </tr>
-                <tr style={{ filter: (this.state.prefetch ? 'brightness(0.5)' : 'brightness(1)') }}>
-                  <td>DICOM Server:</td>
-                  <td id="aiaa.dicom.server" className="segEdit" contentEditable={!this.state.prefetch}
-                      suppressContentEditableWarning="true">
-                    {this.state.settings.dicom.server_address}:{this.state.settings.dicom.server_port}
-                  </td>
-                </tr>
-                <tr style={{ filter: (this.state.prefetch ? 'brightness(0.5)' : 'brightness(1)') }}>
-                  <td>DICOM AE Title:</td>
-                  <td id="aiaa.dicom.ae" className="segEdit" contentEditable={!this.state.prefetch}
-                      suppressContentEditableWarning="true">
-                    {this.state.settings.dicom.ae_title}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan="2" align="right"><input type="button" value="save" onClick={this.saveSettings}/></td>
-                </tr>
+                  <CheckBox
+                    name="aiaa_session"
+                    description="Use AIAA Session"
+                    defaultChecked={true}
+                    disabled={true}
+                  />
+                  <CheckBox
+                    name="overlap_segments"
+                    description="Overlapping Segments"
+                    defaultChecked={aiaa_settings.overlap_segments}
+                    handleClick={this.handleClick}
+                  />
+                  <CheckBox
+                    name="dextr3d_auto_run"
+                    description="Auto Run DExtr3D"
+                    defaultChecked={aiaa_settings.dextr3d_auto_run}
+                    handleClick={this.handleClick}
+                  />
+                  <tr>
+                    <td>Export As:</td>
+                    <td>
+                      <select
+                        name="export_format"
+                        defaultValue={aiaa_settings.export_format}
+                        onChange={this.handleSelect}
+                      >
+                        <option value="NRRD">NRRD</option>
+                        <option value="NIFTI">NIFTI</option>
+                        <option value="NIFTI" disabled>DICOM-SEG</option>
+                      </select>
+                    </td>
+                  </tr>
+                  <CheckBox
+                    name="fetch_from_dicom_server"
+                    description="Fetch Images From DICOM Server"
+                    defaultChecked={aiaa_settings.fetch_from_dicom_server}
+                    handleClick={this.handleClick}
+                  />
+                  <tr
+                    style={{
+                      filter: aiaa_settings.fetch_from_dicom_server
+                        ? 'brightness(1)'
+                        : 'brightness(0.5)',
+                    }}
+                  >
+                    <td>DICOM Server:</td>
+                    <td>
+                      <input
+                        className="segEdit"
+                        type="text"
+                        defaultValue={
+                          aiaa_settings.dicom.server_address +
+                          ':' +
+                          aiaa_settings.dicom.server_port
+                        }
+                        onBlur={this.onBlurDICOMURL}
+                        disabled={!aiaa_settings.fetch_from_dicom_server}
+                      />
+                    </td>
+                  </tr>
+                  <tr
+                    style={{
+                      filter: aiaa_settings.fetch_from_dicom_server
+                        ? 'brightness(1)'
+                        : 'brightness(0.5)',
+                    }}
+                  >
+                    <td>DICOM AE Title:</td>
+                    <td>
+                      <input
+                        className="segEdit"
+                        type="text"
+                        defaultValue={aiaa_settings.dicom.ae_title}
+                        onBlur={this.onBlurDICOMAE}
+                        disabled={!aiaa_settings.fetch_from_dicom_server}
+                      />
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
         ) : null}
       </div>
-
     );
   }
 }
