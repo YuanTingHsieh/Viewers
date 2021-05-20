@@ -4,6 +4,12 @@ import pako from 'pako';
 import readImageArrayBuffer from 'itk/readImageArrayBuffer';
 import writeArrayBuffer from 'itk/writeArrayBuffer';
 import config from 'itk/itkConfig';
+import cornerstone from "cornerstone-core";
+import cornerstoneTools from "cornerstone-tools";
+import dcmjs from "dcmjs";
+import DICOMWeb from "@ohif/core/src/DICOMWeb";
+import errorHandler from "@ohif/core/src/errorHandler";
+import {api} from "dicomweb-client";
 
 const pkgJSON = require('../../package.json');
 const itkVersion = pkgJSON.dependencies.itk.substring(1);
@@ -69,6 +75,53 @@ export default class AIAASegReader {
       }, 0);
     }
   };
+
+  static serializeDicomSeg(images, labelmaps3D, filename) {
+    const segmentationModule = cornerstoneTools.getModule('segmentation');
+
+    for (let labelmapIndex = 0; labelmapIndex < labelmaps3D.length; labelmapIndex++) {
+      const labelmap3D = labelmaps3D[labelmapIndex];
+      const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+      if (labelmap3D && labelmap3D.metadata && labelmap3D.metadata.data) {
+        const data = labelmap3D.metadata.data
+
+        for (let i = 1; i < data.length; i++) {
+          //data[i].RecommendedDisplayCIELabValue = dcmjs.data.Colors.rgb2DICOMLAB(colorLutTable[i]);
+          data[i].ROIDisplayColor = colorLutTable[i].slice(0, 3);
+          if (!data[i].SegmentDescription) {
+            data[i].SegmentDescription = data[i].SegmentLabel;
+          }
+        }
+        labelmap3D.metadata = data;
+      }
+    }
+
+    const segBlob = dcmjs.adapters.Cornerstone.Segmentation.generateSegmentation(images, labelmaps3D);
+    //AIAASegReader.saveFile(new Blob([segBlob]), filename);
+    //console.info('File downloaded: ' + filename);
+
+    const config = {
+      url: window.config.servers.dicomWeb[0].wadoRoot,
+      headers: DICOMWeb.getAuthorizationHeader(),
+      errorInterceptor: errorHandler.getHTTPErrorHandler(),
+    };
+
+    const dicomWeb = new api.DICOMwebClient(config);
+    segBlob.arrayBuffer().then(function (buffer) {
+      const options = {
+        datasets: [buffer],
+      };
+      dicomWeb.storeInstances(options);
+    });
+
+    for (let labelmapIndex = 0; labelmapIndex < labelmaps3D.length; labelmapIndex++) {
+      const labelmap3D = labelmaps3D[labelmapIndex];
+      if (labelmap3D && labelmap3D.metadata) {
+        const data = labelmap3D.metadata;
+        labelmap3D.metadata = {data: data};
+      }
+    }
+  }
 
   // https://insightsoftwareconsortium.github.io/itk-js/api/browser_io.html
   static serializeNrrdToNii(header, image, filename) {

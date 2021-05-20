@@ -14,12 +14,12 @@ export default class AIAAClient {
   }
 
   getModelsURL() {
-    let model_url = new URL('/v1/models', this.server_url);
+    let model_url = new URL('v1/models', this.server_url);
     return model_url.toString();
   }
 
   getLogsURL(lines = 100) {
-    let log_url = new URL('logs', this.server_url);
+    let log_url = new URL('logs/', this.server_url);
     log_url.searchParams.append('lines', lines);
     return log_url.toString();
   }
@@ -31,7 +31,7 @@ export default class AIAAClient {
    */
   async model_list(model_name = undefined, label = undefined) {
     console.info('AIAA fetching models');
-    let model_url = new URL('/v1/models', this.server_url);
+    let model_url = new URL('v1/models', this.server_url);
     if (model_name !== undefined)
       model_url.searchParams.append('model', model_name);
     else if (label !== undefined) model_url.searchParams.append('label', label);
@@ -51,8 +51,9 @@ export default class AIAAClient {
    */
   async createSession(image_in, params, expiry = 0) {
     console.info('AIAAClient - create session');
-    let session_url = new URL('/session/', this.server_url);
+    let session_url = new URL('session/', this.server_url);
     session_url.searchParams.append('expiry', expiry);
+    session_url.searchParams.append('save_as', '.nii');
     return await AIAAUtils.api_put(session_url.toString(), params, image_in);
   }
 
@@ -67,7 +68,7 @@ export default class AIAAClient {
    */
   async getSession(session_id, update_ts = false) {
     console.info('AIAAClient - get session');
-    let session_url = new URL('/session/' + session_id, this.server_url);
+    let session_url = new URL('session/' + session_id, this.server_url);
     if (update_ts) {
       session_url.searchParams.append('update_ts', update_ts);
     }
@@ -85,10 +86,11 @@ export default class AIAAClient {
     return this.inference('segmentation', model_name, params, image_in, session_id);
   }
 
-  async deepgrow(model_name, foreground, background, image_in, session_id = undefined, output_type = '.nrrd') {
+  async deepgrow(model_name, foreground, background, current_point, image_in, session_id = undefined, output_type = '.nrrd') {
     const params = {
       foreground: foreground,
       background: background,
+      current_point: current_point,
     };
     if (output_type) {
       params.result_extension = output_type;
@@ -114,7 +116,7 @@ export default class AIAAClient {
 
   async inference(api, model_name, params, image_in, session_id = undefined) {
     console.info('AIAAClient - calling ' + api);
-    let seg_url = new URL('/v1/' + api, this.server_url);
+    let seg_url = new URL('v1/' + api, this.server_url);
     seg_url.searchParams.append('model', model_name);
 
     // TODO:: parse multi-part

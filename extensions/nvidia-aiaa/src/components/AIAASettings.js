@@ -124,7 +124,7 @@ export default class AIAASettings extends React.Component {
                       >
                         <option value="NRRD">NRRD</option>
                         <option value="NIFTI">NIFTI</option>
-                        <option value="NIFTI" disabled>DICOM-SEG</option>
+                        <option value="DICOM-SEG">DICOM-SEG</option>
                       </select>
                     </td>
                   </tr>

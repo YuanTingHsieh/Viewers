@@ -105,15 +105,20 @@ function flattenLabelmaps(labelmaps) {
 function createSegment(element, label, newLabelMap = false, labelMeta = null) {
   labelMeta = labelMeta ? labelMeta : {
     SegmentedPropertyCategoryCodeSequence: {
-      CodeValue: 'T-D000A',
-      CodingSchemeDesignator: 'SRT',
-      CodeMeaning: 'Anatomical Structure',
+      CodeValue: "T-D0050",
+      CodingSchemeDesignator: "SRT",
+      CodeMeaning: "Tissue"
     },
     SegmentNumber: 1,
     SegmentLabel: (label ? label : 'label-0-1'),
     SegmentDescription: '',
-    SegmentAlgorithmType: 'AUTOMATIC',
-    SegmentAlgorithmName: 'CNN',
+    SegmentAlgorithmType: 'SEMIAUTOMATIC',
+    SegmentAlgorithmName: 'NVIDIA',
+    SegmentedPropertyTypeCodeSequence: {
+      CodeValue: "T-D0050",
+      CodingSchemeDesignator: "SRT",
+      CodeMeaning: "Tissue"
+    }
   };
 
   if (newLabelMap) {
@@ -260,6 +265,27 @@ function updateSegment(element, labelmapIndex, segmentIndex, buffer, numberOfFra
   cornerstone.updateImage(element);
 }
 
+function updateSegmentMeta(element, labelmapIndex, segmentIndex, label = undefined, desc = undefined) {
+  const labelmap3D = getters.labelmap3D(element, labelmapIndex);
+  if (!labelmap3D) {
+    console.warn('Missing Label; so ignore');
+    return;
+  }
+
+  const metadata = labelmap3D.metadata.data ? labelmap3D.metadata.data : labelmap3D.metadata;
+  if (!metadata) {
+    console.warn('Missing Meta; so ignore');
+    return;
+  }
+
+  if (label) {
+    metadata[segmentIndex].SegmentLabel = label;
+  }
+  if (desc) {
+    metadata[segmentIndex].SegmentDescription = desc;
+  }
+}
+
 
 function deleteSegment(element, labelmapIndex, segmentIndex) {
   console.debug('calling delete segment with ' + labelmapIndex + ' and ' + segmentIndex);
@@ -312,4 +338,5 @@ export {
   createSegment,
   updateSegment,
   deleteSegment,
+  updateSegmentMeta,
 };

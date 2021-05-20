@@ -22,7 +22,7 @@ export default class AIAAVolume {
     this.volume = null;
   }
 
-  createDicomData = async (studies, StudyInstanceUID, SeriesInstanceUID) => {
+  createDicomData = async (studies, StudyInstanceUID, SeriesInstanceUID, flag = false) => {
     console.info('createDicomData this takes some time .......');
     const study = studies.find(
       study => study.StudyInstanceUID === StudyInstanceUID,
@@ -71,8 +71,12 @@ export default class AIAAVolume {
 
       console.info('Getting Dicom for: ' + i);
       const volume = await DicomLoaderService.findDicomDataPromise(n, studies);
-      let image_in = new Blob([volume], { type: 'application/octet-stream' });
-      imagesBuffers.push({ data: image_in, name: 'image_' + i + '.dcm' });
+      if (flag) {
+        imagesBuffers.push({data: {byteArray: new Uint8Array(volume)}, imageId: d.images[i]._imageId});
+      } else {
+        let image_in = new Blob([volume], { type: 'application/octet-stream' });
+        imagesBuffers.push({data: image_in, name: 'image_' + i + '.dcm'});
+      }
     }
 
     return imagesBuffers;
