@@ -78,12 +78,19 @@ export default class AIAASegReader {
 
   static serializeDicomSeg(images, labelmaps3D, filename) {
     const segmentationModule = cornerstoneTools.getModule('segmentation');
+    const lastSliceNumber = images.length;
+    let labelmaps2D_backup = [];
 
-    for (let labelmapIndex = 0; labelmapIndex < labelmaps3D.length; labelmapIndex++) {
+    for (
+      let labelmapIndex = 0;
+      labelmapIndex < labelmaps3D.length;
+      labelmapIndex++
+    ) {
       const labelmap3D = labelmaps3D[labelmapIndex];
-      const colorLutTable = segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
+      const colorLutTable =
+        segmentationModule.state.colorLutTables[labelmap3D.colorLUTIndex];
       if (labelmap3D && labelmap3D.metadata && labelmap3D.metadata.data) {
-        const data = labelmap3D.metadata.data
+        const data = labelmap3D.metadata.data;
 
         for (let i = 1; i < data.length; i++) {
           //data[i].RecommendedDisplayCIELabValue = dcmjs.data.Colors.rgb2DICOMLAB(colorLutTable[i]);
@@ -93,12 +100,26 @@ export default class AIAASegReader {
           }
         }
         labelmap3D.metadata = data;
+
+        // reverse the labelmap
+        const labelmaps2D = labelmap3D.labelmaps2D;
+        labelmaps2D_backup[labelmapIndex] = labelmaps2D;
+        let reversedlabelmaps2D = [];
+        for (let j = 0; j < labelmaps2D.length; j++) {
+          if (labelmaps2D[j]) {
+            // labelmaps2D[j].segmentsOnLabelmap = [0,1]; // just to make sure some remain empty may be causing the errors!
+            reversedlabelmaps2D[lastSliceNumber - j - 1] = labelmaps2D[j];
+          }
+        }
+        labelmap3D.labelmaps2D = reversedlabelmaps2D;
       }
     }
 
-    const segBlob = dcmjs.adapters.Cornerstone.Segmentation.generateSegmentation(images, labelmaps3D);
-    //AIAASegReader.saveFile(new Blob([segBlob]), filename);
-    //console.info('File downloaded: ' + filename);
+    const segBlob = dcmjs.adapters.Cornerstone.Segmentation.generateSegmentation(
+      images,
+      labelmaps3D,
+      { includeSliceSpacing: true, rleEncode: false }
+    );
 
     const config = {
       url: window.config.servers.dicomWeb[0].wadoRoot,
@@ -107,19 +128,26 @@ export default class AIAASegReader {
     };
 
     const dicomWeb = new api.DICOMwebClient(config);
-    segBlob.arrayBuffer().then(function (buffer) {
+    segBlob.arrayBuffer().then(function(buffer) {
       const options = {
         datasets: [buffer],
       };
       dicomWeb.storeInstances(options);
     });
 
-    for (let labelmapIndex = 0; labelmapIndex < labelmaps3D.length; labelmapIndex++) {
+    for (
+      let labelmapIndex = 0;
+      labelmapIndex < labelmaps3D.length;
+      labelmapIndex++
+    ) {
       const labelmap3D = labelmaps3D[labelmapIndex];
       if (labelmap3D && labelmap3D.metadata) {
         const data = labelmap3D.metadata;
-        labelmap3D.metadata = {data: data};
+        labelmap3D.metadata = { data: data };
       }
+
+      // revert the labelsmap2D back
+      labelmap3D.labelmaps2D = labelmaps2D_backup[labelmapIndex];
     }
   }
 
